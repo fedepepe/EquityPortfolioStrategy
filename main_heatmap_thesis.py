@@ -95,19 +95,16 @@ trsctn_fee_prop = 0e-4  # Proportional transaction fees
 
 wght_mtds = ['equal', 'mktcap', 'lotp', 'ilotp']  # Weighting method for stock alloc.
 
-results_dir = './' + dataset + '/results/'
-results_tag = 'thesis_sw_'
+results_tag = 'thesis_sw'
 
 pf_backtest = PortfolioBacktest(dataset=dataset, n_stk=n_stk, n_obs=n_obs_ar, n_reb=n_reb_ar,
                                 algos=algos, wght_mtds=wght_mtds, price_df=last_price_df,
                                 return_df=return_df, volat_df=real_vol_df, mktcap_df=mktcap_df,
-                                mkt_idx_df=mkt_idx_df, risk_free_ret=rf_ret_df, 
+                                bema_idx_df=mkt_idx_df, risk_free_ret=rf_ret_df,
                                 endow=endow, idx_start=max(n_obs_ar), lag=1,
                                 trsctn_fee_fix=trsctn_fee_fix, trsctn_fee_prop=trsctn_fee_prop,
                                 risk_avers_factor=None,
-                                multi_proc=True, cv_opt_bw=False,
-                                results_dir=results_dir, results_tag=results_tag,
-                                overwrite_results=False)
+                                multi_proc=True, cv_opt_bw=False, results_tag=results_tag)
 
 pf_backtest.backtest()
 pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.SHARPE)

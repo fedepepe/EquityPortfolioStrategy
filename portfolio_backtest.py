@@ -26,13 +26,12 @@ from yahoo_data_tools import ymd_date_fmt
 
 
 def calculate_time(func):
-    def wrapper(self, *args, **kwargs):
+    def wrapper(*args, **kwargs):
         start = time.perf_counter()
-        func(self, *args, **kwargs)
+        func(*args, **kwargs)
         end = time.perf_counter()
         elapsed = end - start
         print(f'\n --- Simulation time: {time.strftime("%Mm %Ss", time.gmtime(elapsed))} --- ')
-
     return wrapper
 
 
@@ -48,7 +47,7 @@ class PortfolioBacktest:
                  return_df: pd.DataFrame = None,
                  volat_df: pd.DataFrame = None,
                  mktcap_df: pd.DataFrame = None,
-                 mkt_idx_df: pd.Series = None,
+                 bema_idx_df: pd.Series = None,
                  risk_free_ret: Union[float, pd.Series] = None,
                  endow: float = 1e6,
                  idx_start: int = None,
@@ -110,7 +109,7 @@ class PortfolioBacktest:
         self.return_df = return_df
         self.volat_df = volat_df
         self.mktcap_df = mktcap_df
-        self.mkt_idx_df = mkt_idx_df
+        self.bema_idx_df = bema_idx_df
         if risk_free_ret is None:
             self.risk_free_ret = 0
             exc_ret_df = return_df
@@ -183,7 +182,7 @@ class PortfolioBacktest:
         self.results_filenames = {}
         for wm in self.wght_mtds:
             self.results_filenames[wm] = f'{self.get_results_base_filename()}_{self.n_stk}_{self.algo}_{wm}.txt'
-        if self.mkt_idx_df is not None:
+        if self.bema_idx_df is not None:
             self.results_filenames['mkt'] = f'{self.get_results_base_filename()}_mkt.txt'
 
     def set_n_stk(self, n_stk: int):
@@ -231,11 +230,16 @@ class PortfolioBacktest:
             rf_ret_df_hist = self.risk_free_ret
 
         # Create stock picker object
-        stock_picker = StockPicker(self.n_stk, self.algo, ret_df_win, vol_df_win, sharpe_df_win,
-                                   cap_df_win, self.nsel)
+        stock_picker = StockPicker(n_stk=self.n_stk,
+                                   algo=self.algo,
+                                   ret_df=ret_df_win,
+                                   vol_df=vol_df_win,
+                                   sharpe_df=sharpe_df_win,
+                                   mktcap_df=cap_df_win,
+                                   nsel=self.nsel)
 
         # Perform stock selection
-        stock_sel_df = stock_picker.pick_stocks(self.multi_proc, self.cv_opt_bw)
+        stock_sel_df = stock_picker.pick_stocks(multi_proc=self.multi_proc, cv_opt_bw=self.cv_opt_bw)
         stock_sel = stock_sel_df.index
 
         # Add column with last price
@@ -252,14 +256,16 @@ class PortfolioBacktest:
         # Compute portfolio allocation
         pf_alloc_dct = {}
         for wm in self.pf_dict:
-            pf_alloc_dct[wm] = self.pf_dict[wm].compute_weights(stock_sel_df, wm,
-                                                                self.risk_avers_factor,
-                                                                self.max_leverage,
-                                                                self.mktcap_df.loc[timestamp],
-                                                                ret_sel_df_hist, vol_sel_df_hist,
-                                                                rf_ret_df_hist,
-                                                                self.trsctn_fee_fix,
-                                                                self.trsctn_fee_prop)
+            pf_alloc_dct[wm] = self.pf_dict[wm].compute_weights(stock_sel_df=stock_sel_df,
+                                                                wght_mtd=wm,
+                                                                risk_avers=self.risk_avers_factor,
+                                                                max_lvrg=self.max_leverage,
+                                                                mktcap_df=self.mktcap_df.loc[timestamp],
+                                                                ret_df=ret_sel_df_hist,
+                                                                vol_df=vol_sel_df_hist,
+                                                                bema_ret_df=rf_ret_df_hist,
+                                                                trsctn_fee_fix=self.trsctn_fee_fix,
+                                                                trsctn_fee_prop=self.trsctn_fee_prop)
         return pf_alloc_dct
 
     @calculate_time
@@ -278,7 +284,7 @@ class PortfolioBacktest:
         if n_samples <= self.n_obs:
             raise Exception('Not enough data samples for backtesting.')
 
-        # Get full list of days to be simulated and those when rebalancing occurs
+        # Get full list of days for backtesting and those when rebalancing occurs
         # self.idx_start is the first trading day, so the portfolios are initialized
         # at self.idx_start - 1 with the initial wealth
         self.timestamps = price_df.index[self.idx_start - 1:]
@@ -297,7 +303,6 @@ class PortfolioBacktest:
         self.init_portfolios(price_df.index[self.idx_start - 1])
 
         for n, timestamp in enumerate(self.timestamps[1:]):
-
             price_curr_dct_fill = price_df_fill.loc[timestamp].to_dict()
 
             for wm in self.pf_dict:
@@ -326,10 +331,10 @@ class PortfolioBacktest:
                 print(f'{n + 1}', end='..')
 
         # add market portfolio
-        if self.mkt_idx_df is not None:
-            self.mkt_idx_df = self.mkt_idx_df.reindex(index=self.timestamps)
+        if self.bema_idx_df is not None:
+            self.bema_idx_df = self.bema_idx_df.reindex(index=self.timestamps)
             self.pf_dict['mkt'] = Portfolio(self.endow)
-            self.pf_dict['mkt'].val_tot_hist = self.mkt_idx_df / self.mkt_idx_df.iloc[0] * self.endow
+            self.pf_dict['mkt'].val_tot_hist = self.bema_idx_df / self.bema_idx_df.iloc[0] * self.endow
             self.pf_dict['mkt'].val_trans_hist = pd.Series(data=0, index=self.timestamps)
 
     def backtest(self, start_date: pd.Timestamp = None, stop_date: pd.Timestamp = None):
@@ -378,7 +383,7 @@ class PortfolioBacktest:
 
     def analyze(self):
         for wm in self.pf_dict:
-            self.pf_dict[wm].analyze(mkt_ret_df=self.mkt_idx_df.pct_change(),
+            self.pf_dict[wm].analyze(mkt_ret_df=self.bema_idx_df.pct_change(),
                                      risk_free_ret=self.risk_free_ret)
 
     def compute_ff_factors(self, n_factors: int):
@@ -400,26 +405,26 @@ class PortfolioBacktest:
             if not portfolio.perf_metrics:
                 raise Exception('Error! Run portfolio analysis first!')
 
-            data_str = f'{self.n_stk}\t{self.n_obs}\t{self.n_reb}\t{self.algo}\t{wm}\t'
+            results_str = f'{self.n_stk}\t{self.n_obs}\t{self.n_reb}\t{self.algo}\t{wm}\t'
             for metric in EnumPerfMetrics:
                 if metric in portfolio.perf_metrics.keys():
                     pf_metric = portfolio.perf_metrics[metric]
                     if isinstance(pf_metric.value, float):
                         if pf_metric.is_percentage:
-                            data_str = f'{data_str}\t{100 * pf_metric.value:.{pf_metric.decimals}f}'
+                            results_str = f'{results_str}\t{100 * pf_metric.value:.{pf_metric.decimals}f}'
                         else:
-                            data_str = f'{data_str}\t{pf_metric.value:.{pf_metric.decimals}f}'
+                            results_str = f'{results_str}\t{pf_metric.value:.{pf_metric.decimals}f}'
 
             if to_file:
                 filename = self.results_filenames[wm]
                 if wm == 'mkt':
                     with open(filename, 'w') as text_file:
-                        text_file.write(f'{data_str}\n')
+                        text_file.write(f'{results_str}\n')
                 else:
                     with open(filename, 'a') as text_file:
-                        text_file.write(f'{data_str}\n')
+                        text_file.write(f'{results_str}\n')
             else:
-                print(data_str)
+                print(results_str)
 
     def print_results_for_latex(self):
         for wm, portfolio in self.pf_dict.items():

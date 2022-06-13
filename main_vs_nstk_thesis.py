@@ -132,5 +132,5 @@ for algo in algos:
               ' (average sim. time: ' + time.strftime('%Mm %Ss', time.gmtime(elapsed_mean)) + ') --- \n')
     
     # %% Print market portfolio performance
-    # pf_backtest.analyze_print_mkt_results(mkt_idx_df, mkt_ret_df)
+    # pf_backtest.analyze_print_mkt_results(bema_idx_df, bema_ret_df)
 

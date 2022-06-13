@@ -74,16 +74,16 @@ risk_avers =  None     # Risk aversion coefficient for quadratic utility functio
 max_lvrg = 1.           # Maximum leverage (i.e., L1 norm of portfolio weights vector)
 max_weight = .5         # Maximum single portfolio weight (to promote diversification)
 
-n_stck = 100             # Size of investment universe
+n_stk = 100             # Size of investment universe
 n_run = 250             # Number of simulation runs
 
-data_filename = f'./results/pf_mu_sig_stk{n_stck}_rac{risk_avers}_lvg{max_lvrg}.txt'
+data_filename = f'./results/pf_mu_sig_stk{n_stk}_rac{risk_avers}_lvg{max_lvrg}.txt'
 
 # %% Do computations
 n_done = 0
 while n_done < n_run:
-    # Randomly pick n_stck stocks out of the SP500 components to form the investment universe
-    idx_stk_sel = np.random.choice(len(return_df.columns), size=n_stck, replace=False)
+    # Randomly pick n_stk stocks out of the SP500 components to form the investment universe
+    idx_stk_sel = np.random.choice(len(return_df.columns), size=n_stk, replace=False)
 
     ret_df = return_df.iloc[:,idx_stk_sel]
     vol_df = real_vol_df.iloc[:,idx_stk_sel]
@@ -111,11 +111,11 @@ while n_done < n_run:
         bounds = opt.Bounds(0 * series_of_ones, max_weight * series_of_ones)
 
     # Equally-weighted portfolio
-    w_eq = 1. / n_stck * series_of_ones
+    w_eq = 1. / n_stk * series_of_ones
     # w0 = w_eq
     
     # Initial starting point is either the equally-weighted portfolio or a random one
-    w0 = np.random.uniform(low=0.0, high=1.0, size=n_stck) * series_of_ones
+    w0 = np.random.uniform(low=0.0, high=1.0, size=n_stk) * series_of_ones
     w0 = w0 / sum(w0)
     
     try:
@@ -248,5 +248,5 @@ for sr in SR:
 label_lines.label_lines(ax.get_lines()[-len(SR):], x_vals=1.03 * xlim[0] * np.ones((len(SR), 1)),
                         zorder=2.5, fontsize=8)
 
-img_filename = f'./results/pf_mu_sig_stk{n_stck}_rac{risk_avers}_lvg{max_lvrg}.pdf'
+img_filename = f'./results/pf_mu_sig_stk{n_stk}_rac{risk_avers}_lvg{max_lvrg}.pdf'
 figure.savefig(img_filename, format='pdf', bbox_inches='tight')

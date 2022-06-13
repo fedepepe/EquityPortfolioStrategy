@@ -78,15 +78,15 @@ def compute_turnover(portfolio):  # turnover
     return turnover.mean()
 
 
-def compute_alpha_beta(cum_wealth_hist, mkt_ret_df, risk_free_ret=0):  # alpha and beta factors
+def compute_alpha_beta(cum_wealth_hist, bema_ret_df, risk_free_ret=0):  # alpha and beta factors
     exc_ret = compute_exc_ret(cum_wealth_hist, risk_free_ret)
-    mkt_ret_df_win = mkt_ret_df.loc[exc_ret.index]
+    bema_ret_df_win = bema_ret_df.loc[exc_ret.index]
     if isinstance(risk_free_ret, pd.Series):
         rf_ret_df_win = risk_free_ret.loc[exc_ret.index]
     else:
         rf_ret_df_win = risk_free_ret
     y = np.array(exc_ret.values, dtype=float).reshape(-1, 1)
-    x = np.array(mkt_ret_df_win.subtract(rf_ret_df_win, axis=0).values, dtype=float).reshape(-1, 1)
+    x = np.array(bema_ret_df_win.subtract(rf_ret_df_win, axis=0).values, dtype=float).reshape(-1, 1)
     x = sm.add_constant(x, prepend=True)
     ols = sm.OLS(y, x)
     ols_result = ols.fit()

@@ -92,7 +92,7 @@ pf_backtest = PortfolioBacktest(n_stk=n_stk, n_obs=1, n_reb=1,
                                 results_dir=results_dir, results_tag=results_tag, results_date=results_date)
 
 # %% Print market portfolio performance
-# pf_backtest.analyze_print_mkt_results(mkt_idx_df, mkt_ret_df)
+# pf_backtest.analyze_print_mkt_results(bema_idx_df, bema_ret_df)
 
 # %% Plot
 algos = ['rmsev'] # ['sev', 'rmsev', 'mtm', 'rmmtm']

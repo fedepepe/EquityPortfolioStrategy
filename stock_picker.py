@@ -149,15 +149,15 @@ def compute_sev_multiproc(d, x_df, y_df, method='kernel', cv_opt_bw=False):
 
 
 class StockPicker:
-    def __init__(self, 
-                 n_stck: int, 
-                 algo: str, 
-                 ret_df: pd.Series, 
+    def __init__(self,
+                 n_stk: int,
+                 algo: str,
+                 ret_df: pd.Series,
                  vol_df: pd.Series,
-                 sharpe_df: pd.Series, 
-                 mktcap_df: pd.Series = None, 
+                 sharpe_df: pd.Series,
+                 mktcap_df: pd.Series = None,
                  nsel: float = 0.1):
-        self.n_stck = n_stck
+        self.n_stk = n_stk
         self.algo = algo
         self.ret_df = ret_df
         self.vol_df = vol_df
@@ -176,12 +176,12 @@ class StockPicker:
         mom_df = mom_df.sort_values(ascending=False)
         mom_df = mom_df.dropna()
         if long_only:
-            stock_df = mom_df.head(self.n_stck).to_frame()
+            stock_df = mom_df.head(self.n_stk).to_frame()
             stock_df.columns = ['metric']
             stock_df['Pos'] = 1
         else:
             median_mom = np.quantile(mom_df, 0.5)
-            tickers = mom_df.subtract(median_mom).abs().head(self.n_stck).index
+            tickers = mom_df.subtract(median_mom).abs().head(self.n_stk).index
             stock_df = mom_df.loc[tickers].to_frame()
             stock_df.columns = ['Metric']
             stock_df.loc[stock_df['Metric'] > median_mom, 'Pos'] = 1
@@ -189,7 +189,7 @@ class StockPicker:
 
         # n_quantiles = 6
         # quantiles = np.quantile(mom_df, np.linspace(0, 1, n_quantiles + 1))
-        # q = self.n_stck
+        # q = self.n_stk
         # mom_df = mom_df[(quantiles[q - 1] < mom_df) & (mom_df <= quantiles[q])]
         # if risk_managed:
         #     algo = 'rmmtm'
@@ -210,8 +210,9 @@ class StockPicker:
             sr_df_curr = sr_df_curr.head(round(self.nsel * sr_df_curr.size))
             sr_df_curr = sr_df_curr.fillna(0)
 
-            mkt_cap_curr = self.cap_df.loc[d, :].reindex(index=sr_df_curr.index)
-            mkt_cap_curr = mkt_cap_curr[sr_df_curr.index]
+            mkt_cap_curr = pd.Series(index=sr_df_curr.index, dtype=float)
+            tickers_with_market_cap = [t for t in self.cap_df.columns if t in sr_df_curr.index]
+            mkt_cap_curr.loc[tickers_with_market_cap] = self.cap_df.loc[d, tickers_with_market_cap]
 
             if any(np.isnan(mkt_cap_curr)):
                 # missing_lst = list(mkt_cap_curr[np.isnan(mkt_cap_curr)].index)
@@ -288,19 +289,19 @@ class StockPicker:
         sev_df = sev_df.dropna()
         
         if long_only:
-            stock_df = sev_df.head(self.n_stck).copy()
+            stock_df = sev_df.head(self.n_stk).copy()
             stock_df['Pos'] = 1
             stock_df = stock_df[stock_df.Metric > 0.2]
         else:
             median_sev = np.quantile(sev_df, 0.5)
-            tickers = sev_df.subtract(median_sev).abs().head(self.n_stck).index
+            tickers = sev_df.subtract(median_sev).abs().head(self.n_stk).index
             stock_df = sev_df.loc[tickers, :]
             stock_df.loc[stock_df['Metric'] > median_sev, 'Pos'] = 1
             stock_df.loc[stock_df['Metric'] < median_sev, 'Pos'] = -1
         
         # n_quantiles = 6
         # quantiles = np.quantile(sev_df, np.linspace(0, 1, n_quantiles + 1))
-        # q = self.n_stck
+        # q = self.n_stk
         # sev_df = sev_df[(quantiles[q - 1] < sev_df['Metric']) & (sev_df['Metric'] <= quantiles[q])]
 
         # if risk_managed:
@@ -337,7 +338,7 @@ class StockPicker:
                 stk_min_w = list(opt_weights[abs(opt_weights) == abs(opt_weights).min()].index)[0]
                 stk_sel.remove(stk_min_w)
 
-                if len(stk_sel) <= self.n_stck:
+                if len(stk_sel) <= self.n_stk:
                     break
 
                 print(f'Number of stocks selected: {len(stk_sel)}')

@@ -88,11 +88,11 @@ def get_opt_weights(ret_df: pd.DataFrame,
         ret_df_copy = ret_df_copy[ticker_list]
         vol_df_copy = vol_df_copy[ticker_list]
         
-    n_stck = len(ret_df_copy.columns)
-    # ones = np.ones(n_stck)
+    n_stk = len(ret_df_copy.columns)
+    # ones = np.ones(n_stk)
     ones = pd.Series(1, index=ret_df_copy.columns)
 
-    if n_stck == 0:
+    if n_stk == 0:
         return pd.Series(dtype=float)
 
     cons_sum = opt.LinearConstraint(ones, 1, 1)     # Imposing sum of weights = 1
@@ -108,7 +108,7 @@ def get_opt_weights(ret_df: pd.DataFrame,
         bounds = opt.Bounds(0 * ones, max_abs_wght * ones)
 
     # Initial starting point is the equally-weighted portfolio
-    w_eq = 1. / n_stck * ones
+    w_eq = 1. / n_stk * ones
 
     try:
         if method == 'meanvar':
@@ -145,7 +145,7 @@ def get_opt_weights(ret_df: pd.DataFrame,
                                       constraints=constraints, bounds=bounds)
             success = opt_result.success
 
-            w0 = np.random.uniform(low=0.0, high=max_abs_wght, size=n_stck) * ones
+            w0 = np.random.uniform(low=0.0, high=max_abs_wght, size=n_stk) * ones
             w0 = w0 / sum(w0)
             maxiter += 100
             

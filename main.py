@@ -62,7 +62,7 @@ def create_backtest_obj(dataset: str,
     pf_backtest = PortfolioBacktest(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
                                     algos=algos, wght_mtds=wght_mtds, price_df=close_df,
                                     return_df=return_df, volat_df=real_vol_df, mktcap_df=mktcap_df,
-                                    mkt_idx_df=mkt_idx_df, risk_free_ret=None,
+                                    bema_idx_df=mkt_idx_df, risk_free_ret=None,
                                     idx_start=40, lag=data_lag,
                                     trsctn_fee_fix=trsctn_fee_fix, trsctn_fee_prop=trsctn_fee_prop,
                                     risk_avers_factor=None,
@@ -127,8 +127,8 @@ def run_unit_test(unit_test: UnitTests):
 
     elif unit_test == UnitTests.RUN_DOWNLOAD_SWEEP:
         dataset_list = ['SP500', 'STOXXE600']
-        main_download(dataset_list=dataset_list)
-        algos = ['sev', 'rmsev', 'lin', 'rmlin']
+        # main_download(dataset_list=dataset_list)
+        algos = ['sev', 'rmsev', 'lin', 'rmlin', 'mtm', 'rmmtm']
         n_stk = 20
         n_obs = np.arange(15, 65, 5)
         n_reb = np.arange(15, 65, 5)
@@ -140,5 +140,5 @@ def run_unit_test(unit_test: UnitTests):
 
 
 if __name__ == '__main__':
-    unit_test = UnitTests.PLOT_RESULTS_SWEEP
+    unit_test = UnitTests.RUN_DOWNLOAD_SWEEP
     run_unit_test(unit_test=unit_test)

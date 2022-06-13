@@ -212,7 +212,7 @@ class Portfolio:
         stock_df['Quantity'] = self.val_tot_curr * stock_df['Weights']
 
         # Divide by the price (also accounting for transaction costs)
-        stock_df['Quantity'] /= (trsctn_fee_fix + (1 + trsctn_fee_prop) * stock_df['Price'])
+        stock_df['Quantity'] /= (trsctn_fee_fix + (1. + trsctn_fee_prop) * stock_df['Price'])
 
         # Apply floor() function to get an integer number of stocks
         # stock_df['Quantity'] = np.floor(stock_df['Quantity'])
@@ -250,9 +250,9 @@ class Portfolio:
         self.perf_metrics[EnumPerfMetrics.TURNOVER].value = turnover
 
     def compute_alpha_beta(self,
-                           mkt_ret_df: pd.Series,
+                           bema_ret_df: pd.Series,
                            risk_free_ret: Union[float, pd.Series] = 0):  # alpha and beta factors
-        alpha_beta = pf_analysis.compute_alpha_beta(self.val_tot_hist, mkt_ret_df, risk_free_ret)
+        alpha_beta = pf_analysis.compute_alpha_beta(self.val_tot_hist, bema_ret_df, risk_free_ret)
         self.perf_metrics[EnumPerfMetrics.ALPHA].value = alpha_beta[0]
         self.perf_metrics[EnumPerfMetrics.BETA].value = alpha_beta[1]
         self.perf_metrics[EnumPerfMetrics.PVAL].value = alpha_beta[2][0]
@@ -278,5 +278,5 @@ class Portfolio:
         self.compute_star(risk_free_ret, level=level)
         self.compute_turnover()
         if mkt_ret_df is not None:
-            self.compute_alpha_beta(mkt_ret_df=mkt_ret_df, risk_free_ret=risk_free_ret)
+            self.compute_alpha_beta(bema_ret_df=mkt_ret_df, risk_free_ret=risk_free_ret)
         self.compute_drawdown()
