@@ -165,8 +165,8 @@ class StockPicker:
         self.cap_df = mktcap_df
         self.nsel = nsel
 
-    def use_momentum(self, 
-                     long_only: bool = True, 
+    def use_momentum(self,
+                     long_only: bool = True,
                      risk_managed: bool = True) -> pd.DataFrame:
         if risk_managed:
             mom_df = self.sharpe_df.copy()
@@ -208,19 +208,22 @@ class StockPicker:
             sr_df_curr = self.sharpe_df.copy().loc[d]
             sr_df_curr = sr_df_curr.sort_values(ascending=False)
             sr_df_curr = sr_df_curr.head(round(self.nsel * sr_df_curr.size))
+            # sr_df_curr = sr_df_curr.sample(n=round(self.nsel * sr_df_curr.size))
             sr_df_curr = sr_df_curr.fillna(0)
 
-            mkt_cap_curr = pd.Series(index=sr_df_curr.index, dtype=float)
-            tickers_with_market_cap = [t for t in self.cap_df.columns if t in sr_df_curr.index]
-            mkt_cap_curr.loc[tickers_with_market_cap] = self.cap_df.loc[d, tickers_with_market_cap]
+            # mkt_cap_curr = pd.Series(index=sr_df_curr.index, dtype=float)
+            # tickers_with_market_cap = [t for t in self.cap_df.columns if t in sr_df_curr.index]
+            # mkt_cap_curr.loc[tickers_with_market_cap] = self.cap_df.loc[d, tickers_with_market_cap]
+            #
+            # if any(np.isnan(mkt_cap_curr)):
+            #     # missing_lst = list(mkt_cap_curr[np.isnan(mkt_cap_curr)].index)
+            #     # print(' --- Warning! Market capitalization missing for ' +
+            #     #       " ".join(str(x) for x in missing_lst) + ' --- ')
+            #
+            #     # Fill nans with zeros
+            #     mkt_cap_curr = mkt_cap_curr.fillna(0)
 
-            if any(np.isnan(mkt_cap_curr)):
-                # missing_lst = list(mkt_cap_curr[np.isnan(mkt_cap_curr)].index)
-                # print(' --- Warning! Market capitalization missing for ' +
-                #       " ".join(str(x) for x in missing_lst) + ' --- ')
-
-                # Fill nans with zeros
-                mkt_cap_curr = mkt_cap_curr.fillna(0)
+            mkt_cap_curr = pd.Series(1, index=sr_df_curr.index, dtype=float)
 
             if risk_managed:
                 hsr_idx_curr = sum(sr_df_curr * mkt_cap_curr)
@@ -231,20 +234,24 @@ class StockPicker:
             hsr_idx[d] = hsr_idx_curr / sum(mkt_cap_curr)
         return hsr_idx
 
-    def use_sev(self, 
+    def use_sev(self,
                 risk_managed: bool = True,
                 long_only: bool = True,
-                multi_proc: bool = True, 
-                method: str = 'kernel', 
+                multi_proc: bool = True,
+                method: str = 'kernel',
+                tracking_mode: bool = False,
                 cv_opt_bw: bool = False) -> pd.DataFrame:
         # Build artificial high Sharpe ratio index
         hsr_idx = self.build_high_sr_index(risk_managed)
 
         # In case of risk-managed algo flavor, correlate Sharpe ratios
         if risk_managed:
-            df_to_use = self.sharpe_df.subtract(hsr_idx, axis=0)
+            features_df = self.sharpe_df
         else:
-            df_to_use = self.ret_df.subtract(hsr_idx, axis=0)
+            features_df = self.ret_df
+
+        if not tracking_mode:
+            features_df = features_df.subtract(hsr_idx, axis=0)
 
         tickers = self.ret_df.columns
 
@@ -259,7 +266,7 @@ class StockPicker:
 
             # Compute SEV metric for each stock using multiprocessing
             for tkr_cnk in chunks(tickers, int(len(tickers) / max_jobs_running)):
-                args = (shrd_dct, df_to_use[tkr_cnk], hsr_idx, method, cv_opt_bw)
+                args = (shrd_dct, features_df[tkr_cnk], hsr_idx, method, cv_opt_bw)
                 p = multiprocessing.Process(target=compute_sev_multiproc,
                                             args=args)
                 jobs.append(p)
@@ -280,14 +287,14 @@ class StockPicker:
         else:
             sev_df = pd.DataFrame(np.nan, index=tickers, columns=['Metric'])
             for tkr in tickers:
-                sev_df.loc[tkr, 'Metric'] = compute_sev(x=df_to_use[tkr].values,
+                sev_df.loc[tkr, 'Metric'] = compute_sev(x=features_df[tkr].values,
                                                         y=hsr_idx.values,
                                                         method=method,
                                                         cv_opt_bw=cv_opt_bw)
 
         sev_df = sev_df.sort_values(ascending=False, by='Metric')
         sev_df = sev_df.dropna()
-        
+
         if long_only:
             stock_df = sev_df.head(self.n_stk).copy()
             stock_df['Pos'] = 1
@@ -298,7 +305,7 @@ class StockPicker:
             stock_df = sev_df.loc[tickers, :]
             stock_df.loc[stock_df['Metric'] > median_sev, 'Pos'] = 1
             stock_df.loc[stock_df['Metric'] < median_sev, 'Pos'] = -1
-        
+
         # n_quantiles = 6
         # quantiles = np.quantile(sev_df, np.linspace(0, 1, n_quantiles + 1))
         # q = self.n_stk
@@ -357,33 +364,37 @@ class StockPicker:
         elif algo == 'sev':
             stock_df = self.use_sev(risk_managed=False,
                                     long_only=True,
-                                    multi_proc=multi_proc, 
+                                    multi_proc=multi_proc,
                                     cv_opt_bw=cv_opt_bw)
         elif algo == 'rmsev':
-            stock_df = self.use_sev(risk_managed=True, 
+            stock_df = self.use_sev(risk_managed=True,
                                     long_only=True,
-                                    multi_proc=multi_proc, 
+                                    multi_proc=multi_proc,
                                     cv_opt_bw=cv_opt_bw)
         elif algo == 'lin':
             stock_df = self.use_sev(risk_managed=False,
                                     long_only=False,
-                                    multi_proc=multi_proc, 
-                                    method='linear')
+                                    multi_proc=multi_proc,
+                                    method='linear',
+                                    tracking_mode=True)
         elif algo == 'lolin':
             stock_df = self.use_sev(risk_managed=False,
                                     long_only=True,
                                     multi_proc=multi_proc,
-                                    method='linear')
+                                    method='linear',
+                                    tracking_mode=True)
         elif algo == 'rmlin':
-            stock_df = self.use_sev(risk_managed=True, 
+            stock_df = self.use_sev(risk_managed=True,
                                     long_only=False,
-                                    multi_proc=multi_proc, 
-                                    method='linear')
+                                    multi_proc=multi_proc,
+                                    method='linear',
+                                    tracking_mode=True)
         elif algo == 'lormlin':
             stock_df = self.use_sev(risk_managed=True,
                                     long_only=True,
                                     multi_proc=multi_proc,
-                                    method='linear')
+                                    method='linear',
+                                    tracking_mode=True)
         elif algo == 'imv':
             stock_df = self.use_backward_subsel()
 

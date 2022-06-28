@@ -46,7 +46,6 @@ def create_backtest_obj(dataset: str,
                         algos: Union[str, list[str]] = None,
                         wght_mtds: Union[str, list[str]] = None
                         ) -> PortfolioBacktest:
-
     stk_data, mkt_data = load_data(dataset)
     close_df, return_df, real_vol_df, mktcap_df, close_adj_ds = [d for d in stk_data]
     mkt_ret_df, mkt_idx_df = [d for d in mkt_data]
@@ -66,17 +65,16 @@ def create_backtest_obj(dataset: str,
                                     idx_start=40, lag=data_lag,
                                     trsctn_fee_fix=trsctn_fee_fix, trsctn_fee_prop=trsctn_fee_prop,
                                     risk_avers_factor=None,
-                                    multi_proc=True, cv_opt_bw=False, save_stk_hist=True)
+                                    multi_proc=True, cv_opt_bw=False, save_stk_hist=False,
+                                    output_figs_format='png')
     return pf_backtest
 
 
 def plot_results(pf_backtest: PortfolioBacktest):
-    if None in [pf_backtest.n_stk, pf_backtest.n_obs, pf_backtest.n_reb, pf_backtest.algos]:
-        pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.SHARPE)
-    elif isinstance(pf_backtest.n_obs_ar, np.ndarray) or isinstance(pf_backtest.n_reb_ar, np.ndarray):
-        pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.SHARPE)
-    else:
+    if len(pf_backtest.n_obs_ar) * len(pf_backtest.n_reb_ar) == 1:
         pf_backtest.plot_cum_wealth()
+    else:
+        pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.IC)
 
 
 class UnitTests(Enum):
@@ -100,10 +98,10 @@ def run_unit_test(unit_test: UnitTests):
 
     elif unit_test == UnitTests.RUN_SINGLE:
         dataset = 'SP500'
-        algos = 'rmsev'
-        n_stk = 10  # Number of stocks to hold in the portfolio
+        algos = 'sev'
+        n_stk = 20  # Number of stocks to hold in the portfolio
         n_obs = 40  # Number of past observations to use as training data
-        n_reb = 20  # Rate of portfolio rebalancing (in trading days)
+        n_reb = 10  # Rate of portfolio rebalancing (in trading days)
         pf_backtest = create_backtest_obj(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
                                           algos=algos, wght_mtds=wght_mtds)
         pf_backtest.backtest()
@@ -128,7 +126,7 @@ def run_unit_test(unit_test: UnitTests):
     elif unit_test == UnitTests.RUN_DOWNLOAD_SWEEP:
         dataset_list = ['SP500', 'STOXXE600']
         # main_download(dataset_list=dataset_list)
-        algos = ['sev', 'rmsev', 'lin', 'rmlin', 'mtm', 'rmmtm']
+        algos = ['sev', 'rmsev', 'lolin', 'lormlin', 'mtm', 'rmmtm']
         n_stk = 20
         n_obs = np.arange(15, 65, 5)
         n_reb = np.arange(15, 65, 5)
@@ -137,8 +135,9 @@ def run_unit_test(unit_test: UnitTests):
                                               algos=algos, wght_mtds=wght_mtds)
             pf_backtest.backtest()
             pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.SHARPE)
+            pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.IC)
 
 
 if __name__ == '__main__':
-    unit_test = UnitTests.RUN_DOWNLOAD_SWEEP
+    unit_test = UnitTests.RUN_SINGLE
     run_unit_test(unit_test=unit_test)

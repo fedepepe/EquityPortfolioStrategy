@@ -246,14 +246,12 @@ def plot_heatmap_single(df: pd.DataFrame,
 
 def plot_heatmap_mosaic(results_dict: Dict,
                         metric_label: str = None,
-                        reverse: bool = False,
-                        save_fig: bool = False,
-                        results_base_filename: str = None
+                        reverse: bool = False
                         ) -> plt.Figure:
-    # Get minimum and maximum value of the parameter
+    # Get minimum and maximum value of the performance parameter
     v_max, v_min, v_wht = -np.inf, np.inf, None
     for key, df in results_dict.items():
-        if 'mkt' in key:  # The value associate to white is given by market portfolio performance
+        if 'mkt' in key:  # The value associate to white is that of the benchmark portfolio
             v_wht = df.iloc[0, 0]
         else:
             v_max = max(v_max, df.to_numpy().max())
@@ -297,9 +295,4 @@ def plot_heatmap_mosaic(results_dict: Dict,
     figure.suptitle(f'{metric_label} ({n_stk} stocks)', fontsize=12)
     figure.tight_layout(pad=0.0, h_pad=1.0, w_pad=1.0)
     figure.show()
-
-    if save_fig:
-        img_filename = f'{results_base_filename}_{metric_label}.pdf'
-        figure.savefig(img_filename, format='pdf', bbox_inches='tight')
-
     return figure

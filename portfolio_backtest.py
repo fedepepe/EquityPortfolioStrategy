@@ -63,7 +63,8 @@ class PortfolioBacktest:
                  results_tag: str = None,
                  results_date: Union[str, datetime, pd.Timestamp] = None,
                  overwrite_results: bool = False,
-                 save_stk_hist: bool = False):
+                 save_stk_hist: bool = False,
+                 output_figs_format: str = True):
 
         self.n_stk_ar = n_stk
         if isinstance(n_stk, int):
@@ -81,25 +82,25 @@ class PortfolioBacktest:
         if isinstance(algos, str):
             self.algos = [self.algos]
 
-        if not any([x is None for x in [n_stk, n_obs, n_reb, algos]]):
-            if len(self.n_stk_ar) * len(self.n_obs_ar) * len(self.n_reb_ar) * len(self.algos) == 1:
-                self.parametric_sweep = False
-                if results_tag is None:
-                    self.results_tag = ''
-                else:
-                    self.results_tag = results_tag
-            else:
-                self.parametric_sweep = True
-                if results_tag is None:
-                    self.results_tag = 'sw'
-                else:
-                    self.results_tag = results_tag
-        else:
+        # if not any([x is None for x in [n_stk, n_obs, n_reb, algos]]):
+        if len(self.n_stk_ar) * len(self.n_obs_ar) * len(self.n_reb_ar) * len(self.algos) == 1:
             self.parametric_sweep = False
             if results_tag is None:
                 self.results_tag = ''
             else:
-                self.results_tag = results_tag            
+                self.results_tag = results_tag
+        else:
+            self.parametric_sweep = True
+            if results_tag is None:
+                self.results_tag = 'sw'
+            else:
+                self.results_tag = results_tag
+        # else:
+        #     self.parametric_sweep = False
+        #     if results_tag is None:
+        #         self.results_tag = ''
+        #     else:
+        #         self.results_tag = results_tag
 
         self.algo = None
         self.wght_mtds = wght_mtds
@@ -161,6 +162,8 @@ class PortfolioBacktest:
                 raise Exception('Results date badly specified.')
         self.results_filenames = {}
         self.results_pickle_filename = f'{self.get_results_base_filename()}.pkl'
+
+        self.output_figs_format = output_figs_format
 
         # Timestamps involved into backtesting
         self.timestamps = None
@@ -346,7 +349,8 @@ class PortfolioBacktest:
                 self.set_n_stk(n_stk=n_stk)
                 self.set_algo(algo=algo)
 
-                self.clear_result_textfiles()
+                if self.parametric_sweep:
+                    self.clear_result_text_files()
 
                 # Main loop
                 start = time.perf_counter()
@@ -376,7 +380,8 @@ class PortfolioBacktest:
                               f'(average sim. time: {elapsed_mean_str}) --- \n')
 
                         # save results to pickle file
-                        self.save_results()
+                        if self.parametric_sweep:
+                            self.save_results()
 
                         # Print results to text file in case of parameter sweep
                         self.print_results(to_file=self.parametric_sweep)
@@ -498,6 +503,7 @@ class PortfolioBacktest:
                                                  linestyle=linestyle)
 
         fig_wealth.axes[0].legend(loc='best')
+        fig_wealth.show()
         return fig_wealth
 
     def plot_heatmap(self, metric_id: EnumPerfMetrics) -> Dict[int, plt.Figure]:
@@ -515,12 +521,17 @@ class PortfolioBacktest:
             results_dict_n_stk = {k: results_dict[k] for k in results_dict.keys() if k[0] == n_stk}
             fig_heatmap = pf_plot.plot_heatmap_mosaic(results_dict=results_dict_n_stk,
                                                       metric_label=metric_label,
-                                                      reverse=reverse,
-                                                      results_base_filename=self.get_results_base_filename())
+                                                      reverse=reverse)
             figs_dict[n_stk] = fig_heatmap
+            if self.output_figs_format == 'png':
+                fig_name = f'{self.get_results_base_filename()}_{n_stk}_{metric_label}.png'
+                fig_heatmap.savefig(fig_name, dpi=600)
+            elif self.output_figs_format == 'pdf':
+                fig_name = f'{self.get_results_base_filename()}_{n_stk}_{metric_label}.pdf'
+                fig_heatmap.savefig(fig_name, format='pdf', bbox_inches='tight')
         return figs_dict
 
-    def clear_result_textfiles(self):
+    def clear_result_text_files(self):
         for wm in self.wght_mtds:
             file_handle = open(self.results_filenames[wm], 'w')
             file_handle.close()

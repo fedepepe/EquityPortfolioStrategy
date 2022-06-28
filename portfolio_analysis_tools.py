@@ -51,8 +51,8 @@ def compute_returns_volat_sharpe(cum_wealth_hist, risk_free_ret=0):
 
 def compute_info_ratio(cum_wealth_hist, benchmark_ret):
     ret_diff = compute_exc_ret(cum_wealth_hist, benchmark_ret)
-    if ret_diff.std() == 0:
-        return 0
+    if ret_diff.std() < 1e-4:
+        return 0.
     else:
         return np.sqrt(TRADING_DAYS_IN_YEAR) * ret_diff.mean() / ret_diff.std()
 
@@ -104,8 +104,8 @@ def compute_drawdown(cum_wealth_hist):  # drawdown
 
 def compute_ff_factors(cum_wealth_hist, n_factors, risk_free_ret=0):
     url = 'http://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_daily_CSV.zip'
-    filehandle, _ = urllib.request.urlretrieve(url)
-    zip_file_object = zipfile.ZipFile(filehandle, 'r')
+    file_handle, _ = urllib.request.urlretrieve(url)
+    zip_file_object = zipfile.ZipFile(file_handle, 'r')
     filename = zip_file_object.namelist()[0]
     file = zip_file_object.open(filename)
     factors_df = pd.read_csv(file, skiprows=3)
@@ -122,8 +122,8 @@ def compute_ff_factors(cum_wealth_hist, n_factors, risk_free_ret=0):
 
     if n_factors > 3:
         url = 'http://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Momentum_Factor_daily_CSV.zip'
-        filehandle, _ = urllib.request.urlretrieve(url)
-        zip_file_object = zipfile.ZipFile(filehandle, 'r')
+        file_handle, _ = urllib.request.urlretrieve(url)
+        zip_file_object = zipfile.ZipFile(file_handle, 'r')
         filename = zip_file_object.namelist()[0]
         file = zip_file_object.open(filename)
         mom_df = pd.read_csv(file, skiprows=12)
