@@ -40,12 +40,15 @@ class Portfolio:
                              EnumPerfMetrics.IC: PerfMetric(label='ic'),
                              EnumPerfMetrics.SORTINO: PerfMetric(label='sortino'),
                              EnumPerfMetrics.STAR: PerfMetric(label='star'),
-                             EnumPerfMetrics.TURNOVER: PerfMetric(label='TO'),
+                             EnumPerfMetrics.TURNOVER: PerfMetric(label='TO',
+                                                                  is_percentage=True,
+                                                                  reversed_color_scale=True),
                              EnumPerfMetrics.ALPHA: PerfMetric(label='alpha', is_percentage=True),
                              EnumPerfMetrics.BETA: PerfMetric(label='beta', reversed_color_scale=True),
                              EnumPerfMetrics.PVAL: PerfMetric(label='pval', reversed_color_scale=True),
                              EnumPerfMetrics.DRAWDOWN: PerfMetric(label='drawdown'),
-                             EnumPerfMetrics.MAXDD: PerfMetric(label='maxdd', is_percentage=True,
+                             EnumPerfMetrics.MAXDD: PerfMetric(label='maxdd',
+                                                               is_percentage=True,
                                                                reversed_color_scale=True),
                              EnumPerfMetrics.FF_FACTORS: PerfMetric(label='ff_factors')}
 

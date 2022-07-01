@@ -98,10 +98,10 @@ def run_unit_test(unit_test: UnitTests):
 
     elif unit_test == UnitTests.RUN_SINGLE:
         dataset = 'SP500'
-        algos = 'sev'
-        n_stk = 20  # Number of stocks to hold in the portfolio
+        algos = 'rmlin'
+        n_stk = 10  # Number of stocks to hold in the portfolio
         n_obs = 40  # Number of past observations to use as training data
-        n_reb = 10  # Rate of portfolio rebalancing (in trading days)
+        n_reb = 20  # Rate of portfolio rebalancing (in trading days)
         pf_backtest = create_backtest_obj(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
                                           algos=algos, wght_mtds=wght_mtds)
         pf_backtest.backtest()
@@ -126,7 +126,8 @@ def run_unit_test(unit_test: UnitTests):
     elif unit_test == UnitTests.RUN_DOWNLOAD_SWEEP:
         dataset_list = ['SP500', 'STOXXE600']
         # main_download(dataset_list=dataset_list)
-        algos = ['sev', 'rmsev', 'lolin', 'lormlin', 'mtm', 'rmmtm']
+        # algos = ['sev', 'rmsev', 'lolin', 'lormlin', 'mtm', 'rmmtm']
+        algos = ['lin', 'rmlin', 'lolin', 'lormlin']
         n_stk = 20
         n_obs = np.arange(15, 65, 5)
         n_reb = np.arange(15, 65, 5)
@@ -139,5 +140,5 @@ def run_unit_test(unit_test: UnitTests):
 
 
 if __name__ == '__main__':
-    unit_test = UnitTests.RUN_SINGLE
+    unit_test = UnitTests.RUN_DOWNLOAD_SWEEP
     run_unit_test(unit_test=unit_test)

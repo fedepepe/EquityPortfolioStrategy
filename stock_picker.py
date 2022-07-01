@@ -211,19 +211,17 @@ class StockPicker:
             # sr_df_curr = sr_df_curr.sample(n=round(self.nsel * sr_df_curr.size))
             sr_df_curr = sr_df_curr.fillna(0)
 
-            # mkt_cap_curr = pd.Series(index=sr_df_curr.index, dtype=float)
-            # tickers_with_market_cap = [t for t in self.cap_df.columns if t in sr_df_curr.index]
-            # mkt_cap_curr.loc[tickers_with_market_cap] = self.cap_df.loc[d, tickers_with_market_cap]
-            #
-            # if any(np.isnan(mkt_cap_curr)):
-            #     # missing_lst = list(mkt_cap_curr[np.isnan(mkt_cap_curr)].index)
-            #     # print(' --- Warning! Market capitalization missing for ' +
-            #     #       " ".join(str(x) for x in missing_lst) + ' --- ')
-            #
-            #     # Fill nans with zeros
-            #     mkt_cap_curr = mkt_cap_curr.fillna(0)
+            mkt_cap_curr = pd.Series(index=sr_df_curr.index, dtype=float)
+            tickers_with_market_cap = [t for t in self.cap_df.columns if t in sr_df_curr.index]
+            mkt_cap_curr.loc[tickers_with_market_cap] = self.cap_df.loc[d, tickers_with_market_cap]
 
-            mkt_cap_curr = pd.Series(1, index=sr_df_curr.index, dtype=float)
+            if any(np.isnan(mkt_cap_curr)):
+                # missing_lst = list(mkt_cap_curr[np.isnan(mkt_cap_curr)].index)
+                # print(' --- Warning! Market capitalization missing for ' +
+                #       " ".join(str(x) for x in missing_lst) + ' --- ')
+
+                # Fill nans with zeros
+                mkt_cap_curr = mkt_cap_curr.fillna(0)
 
             if risk_managed:
                 hsr_idx_curr = sum(sr_df_curr * mkt_cap_curr)
