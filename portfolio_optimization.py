@@ -78,15 +78,15 @@ def get_opt_weights(ret_df: pd.DataFrame,
     ret_df_copy = ret_df.copy()
     vol_df_copy = vol_df.copy()
     
-    # # clean data
-    # ret_df_copy = ret_df_copy.dropna(axis=1)
-    # ret_df_copy = ret_df_copy.loc[:, (ret_df_copy != ret_df_copy.iloc[0]).any()]
-    #
-    # if (method == 'meanvar') and mv_improv:
-    #     vol_df_copy = vol_df_copy.dropna(axis=1)
-    #     ticker_list = [t for t in ret_df_copy.columns if t in vol_df_copy.columns]
-    #     ret_df_copy = ret_df_copy[ticker_list]
-    #     vol_df_copy = vol_df_copy[ticker_list]
+    # clean data
+    ret_df_copy = ret_df_copy.dropna(axis=1)
+    ret_df_copy = ret_df_copy.loc[:, (ret_df_copy != ret_df_copy.iloc[0]).any()]
+
+    if (method == 'meanvar') and mv_improv:
+        vol_df_copy = vol_df_copy.dropna(axis=1)
+        ticker_list = [t for t in ret_df_copy.columns if t in vol_df_copy.columns]
+        ret_df_copy = ret_df_copy[ticker_list]
+        vol_df_copy = vol_df_copy[ticker_list]
         
     n_stk = len(ret_df_copy.columns)
     # ones = np.ones(n_stk)

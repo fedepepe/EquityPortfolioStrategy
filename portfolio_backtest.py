@@ -66,6 +66,7 @@ class PortfolioBacktest:
                  save_stk_hist: bool = False,
                  output_figs_format: str = True):
 
+        self.dataset = dataset
         self.n_stk_ar = n_stk
         if isinstance(n_stk, int):
             self.n_stk_ar = np.array([n_stk])
@@ -399,7 +400,7 @@ class PortfolioBacktest:
         if not to_file:
             pf_name = list(self.pf_dict.keys())[0]
             pf_metrics = self.pf_dict[pf_name].perf_metrics
-            header_str = 'stk\tobs\treb\talgo\tweight'
+            header_str = f'stk\tobs\treb\talgo\tweight  '
             for metric in EnumPerfMetrics:
                 if metric in pf_metrics.keys():
                     if isinstance(pf_metrics[metric].value, float):
@@ -410,15 +411,12 @@ class PortfolioBacktest:
             if not portfolio.perf_metrics:
                 raise Exception('Error! Run portfolio analysis first!')
 
-            results_str = f'{self.n_stk}\t{self.n_obs}\t{self.n_reb}\t{self.algo}\t{wm}\t'
+            results_str = f'{self.n_stk}\t{self.n_obs}\t{self.n_reb}\t{self.algo}\t{wm:<8}'
             for metric in EnumPerfMetrics:
                 if metric in portfolio.perf_metrics.keys():
                     pf_metric = portfolio.perf_metrics[metric]
                     if isinstance(pf_metric.value, float):
-                        if pf_metric.is_percentage:
-                            results_str = f'{results_str}\t{100 * pf_metric.value:.{pf_metric.decimals}f}'
-                        else:
-                            results_str = f'{results_str}\t{pf_metric.value:.{pf_metric.decimals}f}'
+                        results_str = results_str + f'\t{pf_metric.value:{pf_metric.format}}'
 
             if to_file:
                 filename = self.results_filenames[wm]
@@ -442,7 +440,7 @@ class PortfolioBacktest:
                         f'{100 * portfolio.perf_metrics[EnumPerfMetrics.ANN_MEAN_RET].value:.2f} & '
                         f'{100 * portfolio.perf_metrics[EnumPerfMetrics.VOLATILITY].value:.2f} & '
                         f'{100 * (portfolio.val_tot_hist[-1] / portfolio.val_tot_hist[0]):.2f} & '
-                        f'{portfolio.perf_metrics[EnumPerfMetrics.MAXDD].value:.2f} & '
+                        f'{100 * portfolio.perf_metrics[EnumPerfMetrics.MAXDD].value:.2f} & '
                         f'{100 * portfolio.perf_metrics[EnumPerfMetrics.TURNOVER].value:.2f} & '
                         f'{portfolio.perf_metrics[EnumPerfMetrics.SHARPE].value:.4f} & '
                         f'{portfolio.perf_metrics[EnumPerfMetrics.SORTINO].value:.4f} & '
@@ -503,6 +501,7 @@ class PortfolioBacktest:
                                                  linestyle=linestyle)
 
         fig_wealth.axes[0].legend(loc='best')
+        fig_wealth.suptitle(self.dataset)
         fig_wealth.show()
         return fig_wealth
 
@@ -520,7 +519,7 @@ class PortfolioBacktest:
         for n_stk in n_stk_ar:
             results_dict_n_stk = {k: results_dict[k] for k in results_dict.keys() if k[0] == n_stk}
             fig_heatmap = pf_plot.plot_heatmap_mosaic(results_dict=results_dict_n_stk,
-                                                      metric_label=metric_label,
+                                                      title=f'{self.dataset} - {metric_label}',
                                                       reverse=reverse)
             figs_dict[n_stk] = fig_heatmap
             if self.output_figs_format == 'png':

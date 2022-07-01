@@ -245,7 +245,7 @@ def plot_heatmap_single(df: pd.DataFrame,
 
 
 def plot_heatmap_mosaic(results_dict: Dict,
-                        metric_label: str = None,
+                        title: str = None,
                         reverse: bool = False
                         ) -> plt.Figure:
     # Get minimum and maximum value of the performance parameter
@@ -292,7 +292,7 @@ def plot_heatmap_mosaic(results_dict: Dict,
                                          fig_options=fig_options,
                                          reverse=reverse)
 
-    figure.suptitle(f'{metric_label} ({n_stk} stocks)', fontsize=12)
+    figure.suptitle(f'{title} ({n_stk} stocks)', fontsize=12)
     figure.tight_layout(pad=0.0, h_pad=1.0, w_pad=1.0)
     figure.show()
     return figure

@@ -29,6 +29,5 @@ class EnumPerfMetrics(Enum):
 class PerfMetric:
     label: str
     value: Union[float, pd.Series] = None
-    is_percentage: bool = False
-    decimals: int = 4
+    format: str = '.2f'
     reversed_color_scale: bool = False
