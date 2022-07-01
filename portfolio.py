@@ -31,18 +31,17 @@ class Portfolio:
                              EnumPerfMetrics.EXC_RETS: PerfMetric(label='exc_returns'),
                              EnumPerfMetrics.ANN_MEAN_RET: PerfMetric(label='return', format='+.2%'),
                              EnumPerfMetrics.ANN_MEAN_EXC_RET: PerfMetric(label='xret', format='+.2%'),
-                             EnumPerfMetrics.VOLATILITY: PerfMetric(label='volat', format='.2%',
-                                                                    reversed_color_scale=True),
+                             EnumPerfMetrics.VOLATILITY: PerfMetric(label='volat', format='.2%', rev_color_scale=True),
                              EnumPerfMetrics.SHARPE: PerfMetric(label='sharpe'),
                              EnumPerfMetrics.IC: PerfMetric(label='i.c.'),
                              EnumPerfMetrics.SORTINO: PerfMetric(label='sortino'),
                              EnumPerfMetrics.STAR: PerfMetric(label='star'),
-                             EnumPerfMetrics.TURNOVER: PerfMetric(label='trnovr', format='.2%', reversed_color_scale=True),
+                             EnumPerfMetrics.TURNOVER: PerfMetric(label='trnovr', format='.2%', rev_color_scale=True),
                              EnumPerfMetrics.ALPHA: PerfMetric(label='alpha', format='+.2%'),
-                             EnumPerfMetrics.BETA: PerfMetric(label='beta', reversed_color_scale=True),
-                             EnumPerfMetrics.PVAL: PerfMetric(label='pval', reversed_color_scale=True),
+                             EnumPerfMetrics.BETA: PerfMetric(label='beta', rev_color_scale=True),
+                             EnumPerfMetrics.PVAL: PerfMetric(label='pval', rev_color_scale=True),
                              EnumPerfMetrics.DRAWDOWN: PerfMetric(label='drawdown'),
-                             EnumPerfMetrics.MAXDD: PerfMetric(label='maxdd', format='.2%', reversed_color_scale=True),
+                             EnumPerfMetrics.MAXDD: PerfMetric(label='maxdd', format='.2%', rev_color_scale=True),
                              EnumPerfMetrics.FF_FACTORS: PerfMetric(label='ff_factors')}
 
     def trade_stock(self, tckr, price, quantity, trsctn_fee_fix, trsctn_fee_prop):

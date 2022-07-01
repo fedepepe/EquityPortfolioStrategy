@@ -511,7 +511,7 @@ class PortfolioBacktest:
         # get info on chosen performance metric
         default_pf = Portfolio()
         metric_label = default_pf.perf_metrics[metric_id].label
-        reverse = default_pf.perf_metrics[metric_id].reversed_color_scale
+        reverse = default_pf.perf_metrics[metric_id].rev_color_scale
 
         # iterate over all values of n_stk present in the results dictionary
         n_stk_ar = list(set([k[0] for k in results_dict.keys()]))

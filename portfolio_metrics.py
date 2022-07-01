@@ -30,4 +30,4 @@ class PerfMetric:
     label: str
     value: Union[float, pd.Series] = None
     format: str = '.2f'
-    reversed_color_scale: bool = False
+    rev_color_scale: bool = False
