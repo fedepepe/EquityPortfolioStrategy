@@ -35,7 +35,7 @@ class Portfolio:
                              EnumPerfMetrics.SHARPE: PerfMetric(label='sharpe'),
                              EnumPerfMetrics.IC: PerfMetric(label='i.c.'),
                              EnumPerfMetrics.SORTINO: PerfMetric(label='sortino'),
-                             EnumPerfMetrics.STAR: PerfMetric(label='star'),
+                             EnumPerfMetrics.STAR: PerfMetric(label='starr', format='.4f'),
                              EnumPerfMetrics.TURNOVER: PerfMetric(label='trnovr', format='.2%', rev_color_scale=True),
                              EnumPerfMetrics.ALPHA: PerfMetric(label='alpha', format='+.2%'),
                              EnumPerfMetrics.BETA: PerfMetric(label='beta', rev_color_scale=True),

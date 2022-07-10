@@ -50,6 +50,7 @@ class YahooDataDownloader:
         # Ensure index is a DatetimeIndex
         prices_daily.index = pd.to_datetime(prices_daily.index.to_series(), utc=True)
         prices_daily = prices_daily.sort_index()
+        prices_daily = prices_daily.fillna(method='ffill', limit=3)
         with open(self.prices_daily_filename, 'wb') as handle:
             pickle.dump(prices_daily, handle, protocol=pickle.HIGHEST_PROTOCOL)
         

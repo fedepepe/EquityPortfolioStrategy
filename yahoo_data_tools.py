@@ -218,11 +218,11 @@ def adjust_stk_prices(close_ds, close_daily_df):
                         last_idx = price_ser_curr.last_valid_index()
 
                         # Check if we have a valid time series to be adjusted
-                        if type(last_idx) is pd.Timestamp:
+                        if isinstance(last_idx, pd.Timestamp):
                             last_valid_price = price_ser_curr.loc[last_idx]
                             adj_factor = close_daily_curr / last_valid_price
                             price_ser_adj = adj_factor * price_ser_curr
-                            df_curr[tckr] = price_ser_adj
+                            df_curr[tckr] = price_ser_adj[~price_ser_adj.index.duplicated(keep='first')]
 
                 except:
                     breakpoint()

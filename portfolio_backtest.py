@@ -70,38 +70,42 @@ class PortfolioBacktest:
         self.n_stk_ar = n_stk
         if isinstance(n_stk, int):
             self.n_stk_ar = np.array([n_stk])
-        self.n_stk = None
         self.n_obs_ar = n_obs
         if isinstance(n_obs, int):
             self.n_obs_ar = np.array([n_obs])
-        self.n_obs = None
         self.n_reb_ar = n_reb
         if isinstance(n_reb, int):
             self.n_reb_ar = np.array([n_reb])
-        self.n_reb = None
         self.algos = algos
         if isinstance(algos, str):
             self.algos = [self.algos]
 
-        # if not any([x is None for x in [n_stk, n_obs, n_reb, algos]]):
-        if len(self.n_stk_ar) * len(self.n_obs_ar) * len(self.n_reb_ar) * len(self.algos) == 1:
-            self.parametric_sweep = False
-            if results_tag is None:
-                self.results_tag = ''
-            else:
-                self.results_tag = results_tag
+        if results_dir is None:
+            self.results_dir = f'./{dataset}/results/'
         else:
-            self.parametric_sweep = True
-            if results_tag is None:
-                self.results_tag = 'sw'
+            self.results_dir = results_dir
+        Path(self.results_dir).mkdir(parents=True, exist_ok=True)
+
+        if not any([x is None for x in [n_stk, n_obs, n_reb, algos]]):
+            if len(self.n_stk_ar) * len(self.n_obs_ar) * len(self.n_reb_ar) * len(self.algos) == 1:
+                self.parametric_sweep = False
+                if results_tag is None:
+                    self.results_tag = ''
+                else:
+                    self.results_tag = results_tag
             else:
-                self.results_tag = results_tag
-        # else:
-        #     self.parametric_sweep = False
-        #     if results_tag is None:
-        #         self.results_tag = ''
-        #     else:
-        #         self.results_tag = results_tag
+                self.parametric_sweep = True
+                if results_tag is None:
+                    self.results_tag = 'sw'
+                else:
+                    self.results_tag = results_tag
+        else:
+            results = self.load_results()
+            if len(results) == 1:
+                self.parametric_sweep = False
+            else:
+                self.parametric_sweep = True
+            self.results_tag = ''
 
         self.algo = None
         self.wght_mtds = wght_mtds
@@ -144,11 +148,6 @@ class PortfolioBacktest:
             self.init_portfolios(self.price_df.index[0])
 
         # Attributes associated to backtesting results
-        if results_dir is None:
-            self.results_dir = f'./{dataset}/results/'
-        else:
-            self.results_dir = results_dir
-        Path(self.results_dir).mkdir(parents=True, exist_ok=True)
         self.overwrite_results = overwrite_results
         if results_date is None:
             self.results_date = datetime.today().strftime(ymd_date_fmt)
@@ -165,6 +164,8 @@ class PortfolioBacktest:
         self.results_pickle_filename = f'{self.get_results_base_filename()}.pkl'
 
         self.output_figs_format = output_figs_format
+
+        self.n_stk, self.n_obs, self.n_reb = None, None, None
 
         # Timestamps involved into backtesting
         self.timestamps = None
@@ -294,7 +295,7 @@ class PortfolioBacktest:
         self.timestamps = price_df.index[self.idx_start - 1:]
         self.timestamps_reb = price_df.index[self.idx_start::self.n_reb]
 
-        print(f" --- #obs: {self.n_obs}, #reb: {self.n_reb}, #stk: {self.n_stk}. "
+        print(f" --- Algo: {self.algo}, #obs: {self.n_obs}, #reb: {self.n_reb}, #stk: {self.n_stk}. "
               f"Total time steps: {self.timestamps.size - 1}. --- ")
 
         # Build dictionary with last price for computing portfolio value
@@ -411,7 +412,11 @@ class PortfolioBacktest:
             if not portfolio.perf_metrics:
                 raise Exception('Error! Run portfolio analysis first!')
 
-            results_str = f'{self.n_stk}\t{self.n_obs}\t{self.n_reb}\t{self.algo}\t{wm:<8}'
+            if wm == 'mkt':
+                results_str = f'{self.n_stk}\t{self.n_obs}\t{self.n_reb}\t{wm}\t{wm:<8}'
+            else:
+                results_str = f'{self.n_stk}\t{self.n_obs}\t{self.n_reb}\t{self.algo}\t{wm:<8}'
+
             for metric in EnumPerfMetrics:
                 if metric in portfolio.perf_metrics.keys():
                     pf_metric = portfolio.perf_metrics[metric]
@@ -462,20 +467,30 @@ class PortfolioBacktest:
         with open(self.results_pickle_filename, 'wb') as handle:
             pickle.dump(results_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    def load_results(self, load_last: bool = False) -> Dict[Tuple, Dict]:
-        if os.path.isfile(self.results_pickle_filename):
-            return pd.read_pickle(self.results_pickle_filename)
-        else:
-            if load_last:
-                logging.warning('Loading latest results saved.')
-                data_file_collection = glob.glob(f'{self.results_dir}{self.results_tag}*.pkl')
+    def load_results(self, results_filename: str = None) -> Dict[Tuple, Dict]:
+        if hasattr(self, 'results_pickle_filename'):
+            if os.path.isfile(self.results_pickle_filename):
+                return pd.read_pickle(self.results_pickle_filename)
+            else:   # load last available results
+                data_file_collection = glob.glob(f'{self.results_dir}*.pkl')
                 data_file_collection.sort(reverse=True)
-                return pd.read_pickle(data_file_collection[0])
-            else:
-                return {}
+                last_results_filename = data_file_collection[0]
+                logging.warning(f'Loading latest results saved: {last_results_filename}.')
+                return pd.read_pickle(last_results_filename)
+        else:
+            if results_filename is not None:
+                full_results_path = glob.glob(f'{self.results_dir}{results_filename}')
+                logging.warning(f'Loading latest results saved: {full_results_path}.')
+                return pd.read_pickle(full_results_path)
+            else:   # load last available results
+                data_file_collection = glob.glob(f'{self.results_dir}*.pkl')
+                data_file_collection.sort(reverse=True)
+                last_results_filename = data_file_collection[0]
+                logging.warning(f'Loading latest results saved: {last_results_filename}.')
+                return pd.read_pickle(last_results_filename)
 
     def rearrange_results(self, metric_id: EnumPerfMetrics) -> Dict[Tuple, pd.DataFrame]:
-        results_dict_old = self.load_results(load_last=True)
+        results_dict_old = self.load_results()
         if len(results_dict_old) > 0:
             results_dict_new = {}
             for key, perf_dict in results_dict_old.items():
