@@ -130,6 +130,7 @@ def get_opt_weights(ret_df: pd.DataFrame,
         elif method == 'shortfall':
             fun = shortfall_objective
             args = (ret_df_copy, bema_ret_df)
+
         else:
             raise Exception('Optimization method not recognized.')
 

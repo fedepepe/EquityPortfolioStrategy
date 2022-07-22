@@ -8,8 +8,10 @@ Created on Thu Mar 11 12:12:38 2021
 
 import numpy as np
 import pickle
-from enum import Enum
+from enum import Enum, auto
 from typing import Union
+
+import pandas as pd
 
 from portfolio import EnumPerfMetrics
 from portfolio_backtest import PortfolioBacktest
@@ -72,18 +74,19 @@ def create_backtest_obj(dataset: str,
 
 def plot_results(pf_backtest: PortfolioBacktest):
     if pf_backtest.parametric_sweep:
-        pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.ALPHA)
+        pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.SHARPE)
     else:
         pf_backtest.plot_cum_wealth()
 
 
 class UnitTests(Enum):
-    RUN_DOWNLOAD_ALL = 0
-    RUN_DOWNLOAD_STOCK_DATA = 1
-    RUN_SINGLE = 2
-    RUN_SWEEP = 3
-    PLOT_RESULTS_SWEEP = 4
-    RUN_DOWNLOAD_SWEEP = 5
+    RUN_DOWNLOAD_ALL = auto()
+    RUN_DOWNLOAD_STOCK_DATA = auto()
+    RUN_SINGLE = auto()
+    RUN_SWEEP = auto()
+    PLOT_RESULTS_SWEEP = auto()
+    RUN_DOWNLOAD_SWEEP = auto()
+    RUN_ALLOCATION = auto()
 
 
 def run_unit_test(unit_test: UnitTests):
@@ -109,28 +112,27 @@ def run_unit_test(unit_test: UnitTests):
 
     elif unit_test == UnitTests.RUN_SWEEP:
         dataset = 'STOXXE600'
-        algos = ['sev', 'rmsev', 'lolin', 'lormlin', 'mtm', 'rmmtm']
-        n_stk = 30  # Number of stocks to hold in the portfolio
-        n_obs = np.arange(20, 105, 5)  # Number of past observations to use as training data
-        n_reb = np.arange(20, 105, 5)  # Rate of portfolio rebalancing (in trading days)
+        algos = ['sev', 'rmsev', 'mtm', 'rmmtm', 'lomtm', 'lormmtm', 'lin', 'rmlin', 'lolin', 'lormlin']
+        n_stk = 10  # Number of stocks to hold in the portfolio
+        n_obs = np.arange(20, 105, 10)  # Number of past observations to use as training data
+        n_reb = np.arange(20, 65, 5)  # Rate of portfolio rebalancing (in trading days)
         pf_backtest = create_backtest_obj(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
                                           algos=algos, wght_mtds=wght_mtds)
         pf_backtest.backtest()
         plot_results(pf_backtest=pf_backtest)
 
     elif unit_test == UnitTests.PLOT_RESULTS_SWEEP:
-        dataset = 'SP500'
+        dataset = 'STOXXE600'
         pf_backtest = create_backtest_obj(dataset=dataset)
         plot_results(pf_backtest=pf_backtest)
 
     elif unit_test == UnitTests.RUN_DOWNLOAD_SWEEP:
-        dataset_list = ['STOXXE600', 'SP500']
+        dataset_list = ['SP500', 'STOXXE600']
         main_download(dataset_list=dataset_list)
-        algos = ['sev', 'rmsev', 'lolin', 'lormlin', 'mtm', 'rmmtm']
-        # algos = ['lin', 'rmlin', 'lolin', 'lormlin']
+        algos = ['sev', 'rmsev', 'mtm', 'rmmtm', 'lomtm', 'lormmtm', 'lin', 'rmlin', 'lolin', 'lormlin']
         n_stk = 10
-        n_obs = np.arange(20, 105, 5)
-        n_reb = np.arange(20, 105, 5)
+        n_obs = np.arange(20, 105, 10)
+        n_reb = np.arange(20, 65, 5)
         for dataset in dataset_list:
             pf_backtest = create_backtest_obj(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
                                               algos=algos, wght_mtds=wght_mtds)
@@ -138,7 +140,27 @@ def run_unit_test(unit_test: UnitTests):
             pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.SHARPE)
             pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.IC)
 
+    elif unit_test == UnitTests.RUN_ALLOCATION:
+        dataset = 'SP500'
+        algo = 'lin'
+        wght_mtds = 'lotp'
+        n_stk = 10  # Number of stocks to hold in the portfolio
+        n_obs = 90  # Number of past observations to use as training data
+        pf_backtest = create_backtest_obj(dataset=dataset, wght_mtds=wght_mtds)
+        pf_backtest.n_obs = n_obs
+        pf_backtest.set_n_stk(n_stk=n_stk)
+        pf_backtest.set_algo(algo=algo)
+        pf_alloc_dct = pf_backtest.allocate()
+        df = pd.DataFrame(pf_alloc_dct[wght_mtds])
+        df = df.reset_index()
+        df = df.rename(columns={"index": "Ticker"})
+        timestamp = pf_backtest.price_df.index[-1]
+        print(timestamp)
+        print(df)
+        date_str = timestamp.strftime("%Y_%m_%d")
+        df.to_excel(f"./predictions/{dataset}_{date_str}.xlsx")
+
 
 if __name__ == '__main__':
-    unit_test = UnitTests.PLOT_RESULTS_SWEEP
+    unit_test = UnitTests.RUN_ALLOCATION
     run_unit_test(unit_test=unit_test)

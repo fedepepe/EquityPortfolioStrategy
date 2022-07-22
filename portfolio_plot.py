@@ -29,7 +29,7 @@ def plot_cum_wealth(cum_wealth_hist: pd.Series,
     x_data = cum_wealth_hist.index
     y_data = cum_wealth_hist.values
 
-    rnd_col = (np.random.rand(), np.random.rand(), np.random.rand())
+    # rnd_col = (np.random.rand(), np.random.rand(), np.random.rand())
 
     if descr is None:
         descr = 'Strategy'

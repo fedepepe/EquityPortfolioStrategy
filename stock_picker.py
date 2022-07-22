@@ -374,25 +374,25 @@ class StockPicker:
                                     long_only=False,
                                     multi_proc=multi_proc,
                                     method='linear',
-                                    tracking_mode=True)
+                                    tracking_mode=False)
         elif algo == 'lolin':
             stock_df = self.use_sev(risk_managed=False,
                                     long_only=True,
                                     multi_proc=multi_proc,
                                     method='linear',
-                                    tracking_mode=True)
+                                    tracking_mode=False)
         elif algo == 'rmlin':
             stock_df = self.use_sev(risk_managed=True,
                                     long_only=False,
                                     multi_proc=multi_proc,
                                     method='linear',
-                                    tracking_mode=True)
+                                    tracking_mode=False)
         elif algo == 'lormlin':
             stock_df = self.use_sev(risk_managed=True,
                                     long_only=True,
                                     multi_proc=multi_proc,
                                     method='linear',
-                                    tracking_mode=True)
+                                    tracking_mode=False)
         elif algo == 'imv':
             stock_df = self.use_backward_subsel()
 

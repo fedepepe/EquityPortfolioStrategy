@@ -24,6 +24,9 @@ from portfolio_metrics import EnumPerfMetrics
 import portfolio_plot as pf_plot
 from yahoo_data_tools import ymd_date_fmt
 
+logger = logging.getLogger()
+logging.basicConfig(level=logging.INFO)
+
 
 def calculate_time(func):
     def wrapper(*args, **kwargs):
@@ -86,6 +89,7 @@ class PortfolioBacktest:
             self.results_dir = results_dir
         Path(self.results_dir).mkdir(parents=True, exist_ok=True)
 
+        self.results = {}
         if not any([x is None for x in [n_stk, n_obs, n_reb, algos]]):
             if len(self.n_stk_ar) * len(self.n_obs_ar) * len(self.n_reb_ar) * len(self.algos) == 1:
                 self.parametric_sweep = False
@@ -100,8 +104,8 @@ class PortfolioBacktest:
                 else:
                     self.results_tag = results_tag
         else:
-            results = self.load_results()
-            if len(results) == 1:
+            self.load_results()
+            if len(self.results) == 1:
                 self.parametric_sweep = False
             else:
                 self.parametric_sweep = True
@@ -285,8 +289,7 @@ class PortfolioBacktest:
             price_df = price_df.loc[price_df.index <= stop_date]
 
         # Check if there are enough samples for the first iteration
-        n_samples = price_df.shape[0]
-        if n_samples <= self.n_obs:
+        if price_df.shape[0] <= self.n_obs:
             raise Exception('Not enough data samples for backtesting.')
 
         # Get full list of days for backtesting and those when rebalancing occurs
@@ -381,12 +384,14 @@ class PortfolioBacktest:
                         print(f'\n --- Total time elapsed: {elapsed_str} '
                               f'(average sim. time: {elapsed_mean_str}) --- \n')
 
-                        # save results to pickle file
-                        if self.parametric_sweep:
-                            self.save_results()
+                        self.save_results()
 
                         # Print results to text file in case of parameter sweep
                         self.print_results(to_file=self.parametric_sweep)
+
+                # save results to pickle file
+                if self.parametric_sweep:
+                    self.save_pickle_results()
 
     def analyze(self):
         for wm in self.pf_dict:
@@ -453,54 +458,52 @@ class PortfolioBacktest:
             print(data_str)
 
     def save_results(self):
-        # load result file, if it exists already
-        results_dict = self.load_results()
-
         # save only scalar metrics, not time series
         for wm, portfolio in self.pf_dict.items():
             perf_metrics_to_save = {}
             keys_to_save = [k for k, v in portfolio.perf_metrics.items() if isinstance(v.value, float)]
             for k in keys_to_save:
                 perf_metrics_to_save[k] = portfolio.perf_metrics[k]
-            results_dict[(self.n_stk, self.n_obs, self.n_reb, self.algo, wm)] = perf_metrics_to_save
+            self.results[(self.n_stk, self.n_obs, self.n_reb, self.algo, wm)] = perf_metrics_to_save
 
+    def save_pickle_results(self):
         with open(self.results_pickle_filename, 'wb') as handle:
-            pickle.dump(results_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(self.results, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    def load_results(self, results_filename: str = None) -> Dict[Tuple, Dict]:
+    def load_results(self, results_filename: str = None):
         if hasattr(self, 'results_pickle_filename'):
             if os.path.isfile(self.results_pickle_filename):
-                return pd.read_pickle(self.results_pickle_filename)
+                results = pd.read_pickle(self.results_pickle_filename)
             else:   # load last available results
                 data_file_collection = glob.glob(f'{self.results_dir}*.pkl')
                 data_file_collection.sort(reverse=True)
                 last_results_filename = data_file_collection[0]
-                logging.warning(f'Loading latest results saved: {last_results_filename}.')
-                return pd.read_pickle(last_results_filename)
+                logger.info(f'Loading latest results saved: {last_results_filename}.')
+                results = pd.read_pickle(last_results_filename)
         else:
             if results_filename is not None:
                 full_results_path = glob.glob(f'{self.results_dir}{results_filename}')
-                logging.warning(f'Loading latest results saved: {full_results_path}.')
-                return pd.read_pickle(full_results_path)
+                logger.info(f'Loading results from {full_results_path}.')
+                results = pd.read_pickle(full_results_path)
             else:   # load last available results
                 data_file_collection = glob.glob(f'{self.results_dir}*.pkl')
                 data_file_collection.sort(reverse=True)
                 last_results_filename = data_file_collection[0]
-                logging.warning(f'Loading latest results saved: {last_results_filename}.')
-                return pd.read_pickle(last_results_filename)
+                logger.info(f'Loading latest results saved: {last_results_filename}.')
+                results = pd.read_pickle(last_results_filename)
+        self.results = results
 
     def rearrange_results(self, metric_id: EnumPerfMetrics) -> Dict[Tuple, pd.DataFrame]:
-        results_dict_old = self.load_results()
-        if len(results_dict_old) > 0:
+        if len(self.results) > 0:
             results_dict_new = {}
-            for key, perf_dict in results_dict_old.items():
+            for key, perf_dict in self.results.items():
                 (n_stk, n_obs, n_reb, algo, wm) = key
                 if (n_stk, algo, wm) not in results_dict_new.keys():
                     results_dict_new[(n_stk, algo, wm)] = pd.DataFrame()
                 results_dict_new[(n_stk, algo, wm)].loc[n_reb, n_obs] = perf_dict[metric_id].value
             return results_dict_new
         else:
-            logging.warning('No valid results found.')
+            logger.warning('No valid results found.')
             return {}
 
     def plot_cum_wealth(self) -> plt.Figure:
