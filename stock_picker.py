@@ -152,10 +152,10 @@ class StockPicker:
     def __init__(self,
                  n_stk: int,
                  algo: str,
-                 ret_df: pd.Series,
-                 vol_df: pd.Series,
-                 sharpe_df: pd.Series,
-                 mktcap_df: pd.Series = None,
+                 ret_df: pd.DataFrame,
+                 vol_df: pd.DataFrame,
+                 sharpe_df: pd.DataFrame,
+                 mktcap_df: pd.DataFrame = None,
                  nsel: float = 0.1):
         self.n_stk = n_stk
         self.algo = algo
