@@ -255,7 +255,7 @@ class PortfolioBacktest:
         try:
             stock_sel_df['Price'] = [price_curr_dct[tckr] for tckr in stock_sel]
         except:
-            x = 0
+            pass
 
         # Use historical returns and volatilities up to the current rebalancing day 
         # for Markowitz' portfolio optimization
@@ -418,9 +418,9 @@ class PortfolioBacktest:
                 raise Exception('Error! Run portfolio analysis first!')
 
             if wm == 'mkt':
-                results_str = f'{self.n_stk}\t{self.n_obs}\t{self.n_reb}\t{wm}\t{wm:<8}'
+                results_str = f'{self.n_stk}\t{self.n_obs}\t{self.n_reb}\t{wm:<7}\t{wm:<7}\t'
             else:
-                results_str = f'{self.n_stk}\t{self.n_obs}\t{self.n_reb}\t{self.algo}\t{wm:<8}'
+                results_str = f'{self.n_stk}\t{self.n_obs}\t{self.n_reb}\t{self.algo:<7}\t{wm:<7}\t'
 
             for metric in EnumPerfMetrics:
                 if metric in portfolio.perf_metrics.keys():

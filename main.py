@@ -5,7 +5,6 @@ Created on Thu Mar 11 12:12:38 2021
 
 @author: federico
 """
-
 import numpy as np
 import pickle
 from enum import Enum, auto
@@ -13,6 +12,7 @@ from typing import Union
 
 import pandas as pd
 
+from definitions import StockUniverses, WeightMethods, Algorithms
 from portfolio import EnumPerfMetrics
 from portfolio_backtest import PortfolioBacktest
 from yahoo_data_downloader import YahooDataDownloader
@@ -90,8 +90,12 @@ class UnitTests(Enum):
 
 
 def run_unit_test(unit_test: UnitTests):
-    dataset_list = ['SP500', 'STOXXE600']
-    wght_mtds = ['equal', 'mktcap', 'riskpar', 'lotp', 'ilotp']
+    dataset_list = [StockUniverses.SP500, StockUniverses.STOXXE600]
+    wght_mtds = [WeightMethods.EQ, 
+                 WeightMethods.MKTCAP, 
+                 WeightMethods.RISKPAR,
+                 WeightMethods.LOTP,
+                 WeightMethods.ILOTP]
 
     if unit_test == UnitTests.RUN_DOWNLOAD_ALL:
         main_download(dataset_list=dataset_list)
@@ -100,8 +104,8 @@ def run_unit_test(unit_test: UnitTests):
         main_download_stk_data(dataset_list=dataset_list)
 
     elif unit_test == UnitTests.RUN_SINGLE:
-        dataset = 'STOXXE600'
-        algos = 'lolin'
+        dataset = StockUniverses.STOXXE600
+        algos = Algorithms.LIN
         n_stk = 20  # Number of stocks to hold in the portfolio
         n_obs = 40  # Number of past observations to use as training data
         n_reb = 100  # Rate of portfolio rebalancing (in trading days)
@@ -111,8 +115,8 @@ def run_unit_test(unit_test: UnitTests):
         plot_results(pf_backtest=pf_backtest)
 
     elif unit_test == UnitTests.RUN_SWEEP:
-        dataset = 'STOXXE600'
-        algos = ['sev', 'rmsev', 'mtm', 'rmmtm', 'lomtm', 'lormmtm', 'lin', 'rmlin', 'lolin', 'lormlin']
+        dataset = StockUniverses.STOXXE600
+        algos = [field.value for field in Algorithms]
         n_stk = 10  # Number of stocks to hold in the portfolio
         n_obs = np.arange(20, 105, 10)  # Number of past observations to use as training data
         n_reb = np.arange(20, 65, 5)  # Rate of portfolio rebalancing (in trading days)
@@ -122,14 +126,14 @@ def run_unit_test(unit_test: UnitTests):
         plot_results(pf_backtest=pf_backtest)
 
     elif unit_test == UnitTests.PLOT_RESULTS_SWEEP:
-        dataset = 'STOXXE600'
+        dataset = StockUniverses.STOXXE600
         pf_backtest = create_backtest_obj(dataset=dataset)
         plot_results(pf_backtest=pf_backtest)
 
     elif unit_test == UnitTests.RUN_DOWNLOAD_SWEEP:
-        dataset_list = ['SP500', 'STOXXE600']
+        dataset_list = [StockUniverses.SP500, StockUniverses.STOXXE600]
         main_download(dataset_list=dataset_list)
-        algos = ['sev', 'rmsev', 'mtm', 'rmmtm', 'lomtm', 'lormmtm', 'lin', 'rmlin', 'lolin', 'lormlin']
+        algos = [field.value for field in Algorithms]
         n_stk = 10
         n_obs = np.arange(20, 105, 10)
         n_reb = np.arange(20, 65, 5)
@@ -141,9 +145,9 @@ def run_unit_test(unit_test: UnitTests):
             pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.IC)
 
     elif unit_test == UnitTests.RUN_ALLOCATION:
-        dataset = 'SP500'
-        algo = 'lin'
-        wght_mtds = 'lotp'
+        dataset = StockUniverses.STOXXE600
+        algo = Algorithms.LIN
+        wght_mtds = WeightMethods.LOTP
         n_stk = 10  # Number of stocks to hold in the portfolio
         n_obs = 90  # Number of past observations to use as training data
         pf_backtest = create_backtest_obj(dataset=dataset, wght_mtds=wght_mtds)
@@ -162,5 +166,5 @@ def run_unit_test(unit_test: UnitTests):
 
 
 if __name__ == '__main__':
-    unit_test = UnitTests.RUN_ALLOCATION
+    unit_test = UnitTests.RUN_SINGLE
     run_unit_test(unit_test=unit_test)
