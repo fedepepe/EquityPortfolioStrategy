@@ -146,25 +146,26 @@ def run_unit_test(unit_test: UnitTests):
 
     elif unit_test == UnitTests.RUN_ALLOCATION:
         dataset = StockUniverses.STOXXE600
-        algo = Algorithms.LIN
-        wght_mtds = WeightMethods.LOTP
+        algo = Algorithms.RMLIN
+        wght_mtd = WeightMethods.ILOTP
         n_stk = 10  # Number of stocks to hold in the portfolio
-        n_obs = 90  # Number of past observations to use as training data
-        pf_backtest = create_backtest_obj(dataset=dataset, wght_mtds=wght_mtds)
+        n_obs = 60  # Number of past observations to use as training data
+        pf_backtest = create_backtest_obj(dataset=dataset, wght_mtds=wght_mtd)
         pf_backtest.n_obs = n_obs
         pf_backtest.set_n_stk(n_stk=n_stk)
         pf_backtest.set_algo(algo=algo)
         pf_alloc_dct = pf_backtest.allocate()
-        df = pd.DataFrame(pf_alloc_dct[wght_mtds])
+        df = pd.DataFrame(pf_alloc_dct[wght_mtd])
         df = df.reset_index()
         df = df.rename(columns={"index": "Ticker"})
         timestamp = pf_backtest.price_df.index[-1]
         print(timestamp)
         print(df)
         date_str = timestamp.strftime("%Y_%m_%d")
-        df.to_excel(f"./predictions/{dataset}_{date_str}.xlsx")
+        file_name = f"./predictions/{dataset}_{date_str}_{algo}_{wght_mtd}_{n_stk}_{n_obs}.xlsx"
+        df.to_excel(file_name)
 
 
 if __name__ == '__main__':
-    unit_test = UnitTests.RUN_SINGLE
+    unit_test = UnitTests.RUN_ALLOCATION
     run_unit_test(unit_test=unit_test)
