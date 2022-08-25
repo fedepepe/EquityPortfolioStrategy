@@ -145,11 +145,11 @@ def run_unit_test(unit_test: UnitTests):
             pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.IC)
 
     elif unit_test == UnitTests.RUN_ALLOCATION:
-        dataset = StockUniverses.STOXXE600
-        algo = Algorithms.RMLIN
-        wght_mtd = WeightMethods.ILOTP
+        dataset = StockUniverses.SP500
+        algo = Algorithms.LIN
+        wght_mtd = WeightMethods.LOTP
         n_stk = 10  # Number of stocks to hold in the portfolio
-        n_obs = 60  # Number of past observations to use as training data
+        n_obs = 90  # Number of past observations to use as training data
         pf_backtest = create_backtest_obj(dataset=dataset, wght_mtds=wght_mtd)
         pf_backtest.n_obs = n_obs
         pf_backtest.set_n_stk(n_stk=n_stk)
@@ -158,6 +158,7 @@ def run_unit_test(unit_test: UnitTests):
         df = pd.DataFrame(pf_alloc_dct[wght_mtd])
         df = df.reset_index()
         df = df.rename(columns={"index": "Ticker"})
+        df = df.sort_values('Weight', ascending=False)
         timestamp = pf_backtest.price_df.index[-1]
         print(timestamp)
         print(df)

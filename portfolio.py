@@ -158,11 +158,11 @@ class Portfolio:
         # Compute the number of stocks to be traded by first computing the amount of wealth
         # to be allocated and then dividing by the price
         if wght_mtd.lower() == 'equal':  # Equally-weighted portfolio
-            stock_df['Weights'] = [1 / tckrs_sel.size for _ in tckrs_sel]
-            stock_df['Weights'] = stock_df['Pos'] * stock_df['Weights']
+            stock_df['Weight'] = [1 / tckrs_sel.size for _ in tckrs_sel]
+            stock_df['Weight'] = stock_df['Pos'] * stock_df['Weight']
         elif wght_mtd.lower() == 'metric':  # Metric (momentum or SEV)-weighted portfolio
-            stock_df['Weights'] = stock_df['metric'] / stock_df['metric'].abs().sum()
-            stock_df['Weights'] = stock_df['Pos'] * stock_df['Weights']
+            stock_df['Weight'] = stock_df['metric'] / stock_df['metric'].abs().sum()
+            stock_df['Weight'] = stock_df['Pos'] * stock_df['Weight']
         elif wght_mtd.lower() == 'erc':  # Equally risk contribution portfolio
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", message="delta_grad == 0.0")
@@ -175,13 +175,13 @@ class Portfolio:
                                                      max_lvrg=max_lvrg,
                                                      bema_ret_df=bema_ret_df,
                                                      mv_improv=False)
-                stock_df['Weights'] = opt_weights
+                stock_df['Weight'] = opt_weights
         elif wght_mtd.lower() == 'riskpar':  # Risk-parity weighted portfolio
-            stock_df['Weights'] = pow(stock_df['Volat'], -1) / pow(stock_df['Volat'], -1).sum()
-            stock_df['Weights'] = stock_df['Pos'] * stock_df['Weights']
+            stock_df['Weight'] = pow(stock_df['Volat'], -1) / pow(stock_df['Volat'], -1).sum()
+            stock_df['Weight'] = stock_df['Pos'] * stock_df['Weight']
         elif wght_mtd.lower() == 'mktcap':  # Metric (momentum or SEV)-weighted portfolio
-            stock_df['Weights'] = stock_df['MktCap'] / stock_df['MktCap'].sum()
-            stock_df['Weights'] = stock_df['Pos'] * stock_df['Weights']
+            stock_df['Weight'] = stock_df['MktCap'] / stock_df['MktCap'].sum()
+            stock_df['Weight'] = stock_df['Pos'] * stock_df['Weight']
         elif wght_mtd.lower() in ['lotp', 'tp', 'ilotp']:  # Optimized portfolio
             allow_short_sell = (wght_mtd.lower() == 'tp')
             mv_improv = (wght_mtd.lower() == 'ilotp')
@@ -196,15 +196,15 @@ class Portfolio:
                                                      max_lvrg=max_lvrg,
                                                      bema_ret_df=bema_ret_df,
                                                      mv_improv=mv_improv)
-                stock_df['Weights'] = opt_weights
+                stock_df['Weight'] = opt_weights
 
         if stock_df.isnull().values.any():
             missing_stocks = ", ".join(stock_df[stock_df.isnull().any(axis=1)].index.to_list())
             logging.warning(f'Could not allocate {missing_stocks} with {wght_mtd}')
-            stock_df['Weights'] = stock_df['Weights'].fillna(value=0)
+            stock_df['Weight'] = stock_df['Weight'].fillna(value=0)
 
         # Wealth to be allocated in the different assets
-        stock_df['Quantity'] = self.val_tot_curr * stock_df['Weights']
+        stock_df['Quantity'] = self.val_tot_curr * stock_df['Weight']
 
         # Divide by the price (also accounting for transaction costs)
         stock_df['Quantity'] /= (trsctn_fee_fix + (1. + trsctn_fee_prop) * stock_df['Price'])
