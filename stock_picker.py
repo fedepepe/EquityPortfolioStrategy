@@ -10,12 +10,14 @@ import pandas as pd
 import numpy as np
 import random
 from sklearn.model_selection import LeaveOneOut
-import portfolio_optimization as mv_opt
 # import statsmodels.api as sm
 from scipy import stats
 import multiprocessing
 import warnings
 import sys
+
+import portfolio_optimization as mv_opt
+from definitions import Algorithms, CorrelationMethods
 
 
 def gau_ker(x):
@@ -107,7 +109,8 @@ def get_optimum_cv_bandwidth(x, bw_ref, n_bw_points=21):
     return bw_opt
 
 
-def compute_sev(x, y, method='kernel', cv_opt_bw=False):
+def compute_sev(x: np.array, y: np.array,
+                method: CorrelationMethods = CorrelationMethods.SEV, cv_opt_bw=False):
     if method == 'linear':
         return np.corrcoef(x, y)[0, 1]
     elif method == 'spearman':
@@ -138,7 +141,8 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 
-def compute_sev_multiproc(d, x_df, y_df, method='kernel', cv_opt_bw=False):
+def compute_sev_multiproc(d, x_df, y_df,
+                          method: CorrelationMethods = CorrelationMethods.SEV, cv_opt_bw=False):
     # Suppress warning message caused by NaNs in the dataframes for kernel regr.
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message="Degrees of freedom <= 0 for slice")
@@ -236,7 +240,7 @@ class StockPicker:
                 risk_managed: bool = True,
                 long_only: bool = True,
                 multi_proc: bool = True,
-                method: str = 'kernel',
+                method: CorrelationMethods = CorrelationMethods.SEV,
                 tracking_mode: bool = False,
                 cv_opt_bw: bool = False) -> pd.DataFrame:
         # Build artificial high Sharpe ratio index
@@ -350,50 +354,49 @@ class StockPicker:
             return pd.DataFrame(np.nan, index=stk_sel, columns=[])
 
     def pick_stocks(self, multi_proc: bool = True, cv_opt_bw: bool = False) -> pd.DataFrame:
-        algo = self.algo.lower()
-        if algo == 'mom' or algo == 'mtm':
+        if self.algo == Algorithms.MTM:
             stock_df = self.use_momentum(long_only=False, risk_managed=False)
-        elif algo == 'lomom' or algo == 'lomtm':
+        elif self.algo == Algorithms.LOMTM:
             stock_df = self.use_momentum(long_only=True, risk_managed=False)
-        elif algo == 'rmmom' or self.algo == 'rmmtm':
+        elif self.algo == Algorithms.RMMTM:
             stock_df = self.use_momentum(long_only=False, risk_managed=True)
-        elif algo == 'lormmom' or self.algo == 'lormmtm':
+        elif self.algo == Algorithms.LORMMTM:
             stock_df = self.use_momentum(long_only=True, risk_managed=True)
-        elif algo == 'sev':
+        elif self.algo == Algorithms.SEV:
             stock_df = self.use_sev(risk_managed=False,
                                     long_only=True,
                                     multi_proc=multi_proc,
                                     cv_opt_bw=cv_opt_bw)
-        elif algo == 'rmsev':
+        elif self.algo == Algorithms.RMSEV:
             stock_df = self.use_sev(risk_managed=True,
                                     long_only=True,
                                     multi_proc=multi_proc,
                                     cv_opt_bw=cv_opt_bw)
-        elif algo == 'lin':
+        elif self.algo == Algorithms.LIN:
             stock_df = self.use_sev(risk_managed=False,
                                     long_only=False,
                                     multi_proc=multi_proc,
-                                    method='linear',
+                                    method=CorrelationMethods.LINEAR,
                                     tracking_mode=False)
-        elif algo == 'lolin':
+        elif self.algo == Algorithms.LOLIN:
             stock_df = self.use_sev(risk_managed=False,
                                     long_only=True,
                                     multi_proc=multi_proc,
-                                    method='linear',
+                                    method=CorrelationMethods.LINEAR,
                                     tracking_mode=False)
-        elif algo == 'rmlin':
+        elif self.algo == Algorithms.RMLIN:
             stock_df = self.use_sev(risk_managed=True,
                                     long_only=False,
                                     multi_proc=multi_proc,
-                                    method='linear',
+                                    method=CorrelationMethods.LINEAR,
                                     tracking_mode=False)
-        elif algo == 'lormlin':
+        elif self.algo == Algorithms.LORMLIN:
             stock_df = self.use_sev(risk_managed=True,
                                     long_only=True,
                                     multi_proc=multi_proc,
-                                    method='linear',
+                                    method=CorrelationMethods.LINEAR,
                                     tracking_mode=False)
-        elif algo == 'imv':
+        elif self.algo == Algorithms.IMV:
             stock_df = self.use_backward_subsel()
 
         else:

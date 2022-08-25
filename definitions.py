@@ -1,4 +1,4 @@
-from enum import Enum, EnumMeta
+from enum import Enum, EnumMeta, auto
 
 
 class EnumDirectValueMeta(EnumMeta):
@@ -33,3 +33,10 @@ class Algorithms(Enum, metaclass=EnumDirectValueMeta):
     LORMLIN = 'lormlin'
     SEV = 'sev'
     RMSEV = 'rmsev'
+    IMV = 'imv'
+
+
+class CorrelationMethods(Enum):
+    LINEAR = auto()
+    SPEARMAN = auto()
+    SEV = auto()
