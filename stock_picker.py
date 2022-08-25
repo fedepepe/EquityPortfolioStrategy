@@ -111,11 +111,11 @@ def get_optimum_cv_bandwidth(x, bw_ref, n_bw_points=21):
 
 def compute_sev(x: np.array, y: np.array,
                 method: CorrelationMethods = CorrelationMethods.SEV, cv_opt_bw=False):
-    if method == 'linear':
+    if method == CorrelationMethods.LINEAR:
         return np.corrcoef(x, y)[0, 1]
-    elif method == 'spearman':
+    elif method == CorrelationMethods.SPEARMAN:
         return stats.spearmanr(x, y).correlation
-    elif method == 'kernel':
+    elif method == CorrelationMethods.SEV:
         bw_scott = get_bw_scott(x)  # Scott's Rule of Thumb
 
         if np.isnan(bw_scott):
@@ -133,6 +133,8 @@ def compute_sev(x: np.array, y: np.array,
         [g_hat, fx_hat] = nada_wats_estim(x, y, x_pts, bw)
 
         return float((sum(g_hat ** 2 * fx_hat) * dx - pow(y.mean(), 2)) / y.var(ddof=1))
+    else:
+        raise Exception('Correlation method not implemented.')
 
 
 def chunks(lst, n):

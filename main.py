@@ -145,11 +145,11 @@ def run_unit_test(unit_test: UnitTests):
             pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.IC)
 
     elif unit_test == UnitTests.RUN_ALLOCATION:
-        dataset = StockUniverses.SP500
-        algo = Algorithms.LIN
-        wght_mtd = WeightMethods.LOTP
+        dataset = StockUniverses.STOXXE600
+        algo = Algorithms.RMLIN
+        wght_mtd = WeightMethods.ILOTP
         n_stk = 10  # Number of stocks to hold in the portfolio
-        n_obs = 90  # Number of past observations to use as training data
+        n_obs = 60  # Number of past observations to use as training data
         pf_backtest = create_backtest_obj(dataset=dataset, wght_mtds=wght_mtd)
         pf_backtest.n_obs = n_obs
         pf_backtest.set_n_stk(n_stk=n_stk)
