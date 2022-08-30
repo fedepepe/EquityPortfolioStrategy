@@ -8,7 +8,7 @@ Created on Thu Mar 11 12:12:38 2021
 import numpy as np
 import pickle
 from enum import Enum, auto
-from typing import Union
+from typing import Union, List
 
 import pandas as pd
 
@@ -19,13 +19,13 @@ from yahoo_data_downloader import YahooDataDownloader
 
 
 # %% Load data
-def main_download(dataset_list: list[str]) -> None:
+def main_download(dataset_list: list[StockUniverses]) -> None:
     for ds in dataset_list:
         yahoo_download = YahooDataDownloader(ds)
         yahoo_download.download_latest_data()
 
 
-def main_download_stk_data(dataset_list: list[str]) -> None:
+def main_download_stk_data(dataset_list: list[StockUniverses]) -> None:
     from yahoo_data_tools import get_tickers
     for ds in dataset_list:
         yahoo_download = YahooDataDownloader(ds)
@@ -41,16 +41,21 @@ def load_data(dataset):
     return stk_data, mkt_data
 
 
-def create_backtest_obj(dataset: str,
+def create_backtest_obj(dataset: StockUniverses,
                         n_stk: Union[int, np.array] = None,
                         n_obs: Union[int, np.array] = None,
                         n_reb: Union[int, np.array] = None,
-                        algos: Union[str, list[str]] = None,
-                        wght_mtds: Union[str, list[str]] = None
+                        algos: Union[Algorithms, List[Algorithms]] = None,
+                        wght_mtds: Union[WeightMethods, List[WeightMethods]] = None,
+                        date_start: pd.Timestamp = None,
+                        date_stop: pd.Timestamp = None
                         ) -> PortfolioBacktest:
     stk_data, mkt_data = load_data(dataset)
     close_df, return_df, real_vol_df, mktcap_df, close_adj_ds = [d for d in stk_data]
     mkt_ret_df, mkt_idx_df = [d for d in mkt_data]
+
+    if date_start is not None:
+        close_df = close_df.loc[close_df.index <= date_start]
 
     # Load backtesting parameters
     with open('parameters.pkl', 'rb') as f:
@@ -75,6 +80,7 @@ def create_backtest_obj(dataset: str,
 def plot_results(pf_backtest: PortfolioBacktest):
     if pf_backtest.parametric_sweep:
         pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.SHARPE)
+        pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.IC)
     else:
         pf_backtest.plot_cum_wealth()
 
@@ -104,11 +110,11 @@ def run_unit_test(unit_test: UnitTests):
         main_download_stk_data(dataset_list=dataset_list)
 
     elif unit_test == UnitTests.RUN_SINGLE:
-        dataset = StockUniverses.STOXXE600
-        algos = Algorithms.LIN
-        n_stk = 20  # Number of stocks to hold in the portfolio
-        n_obs = 40  # Number of past observations to use as training data
-        n_reb = 100  # Rate of portfolio rebalancing (in trading days)
+        dataset = StockUniverses.SP500
+        algos = Algorithms.SEV
+        n_stk = 10  # Number of stocks to hold in the portfolio
+        n_obs = 90  # Number of past observations to use as training data
+        n_reb = 40  # Rate of portfolio rebalancing (in trading days)
         pf_backtest = create_backtest_obj(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
                                           algos=algos, wght_mtds=wght_mtds)
         pf_backtest.backtest()
@@ -126,12 +132,13 @@ def run_unit_test(unit_test: UnitTests):
         plot_results(pf_backtest=pf_backtest)
 
     elif unit_test == UnitTests.PLOT_RESULTS_SWEEP:
-        dataset = StockUniverses.STOXXE600
+        dataset = StockUniverses.SP500
         pf_backtest = create_backtest_obj(dataset=dataset)
         plot_results(pf_backtest=pf_backtest)
 
     elif unit_test == UnitTests.RUN_DOWNLOAD_SWEEP:
-        dataset_list = [StockUniverses.SP500, StockUniverses.STOXXE600]
+        # dataset_list = [StockUniverses.SP500, StockUniverses.STOXXE600]
+        dataset_list = [StockUniverses.STOXXE600]
         main_download(dataset_list=dataset_list)
         algos = [field.value for field in Algorithms]
         n_stk = 10
@@ -155,7 +162,7 @@ def run_unit_test(unit_test: UnitTests):
         pf_backtest.set_n_stk(n_stk=n_stk)
         pf_backtest.set_algo(algo=algo)
         pf_alloc_dct = pf_backtest.allocate()
-        df = pd.DataFrame(pf_alloc_dct[wght_mtd])
+        df = pd.DataFrame(pf_alloc_dct[wght_mtd.value])
         df = df.reset_index()
         df = df.rename(columns={"index": "Ticker"})
         df = df.sort_values('Weight', ascending=False)
@@ -168,5 +175,5 @@ def run_unit_test(unit_test: UnitTests):
 
 
 if __name__ == '__main__':
-    unit_test = UnitTests.RUN_ALLOCATION
+    unit_test = UnitTests.RUN_SINGLE
     run_unit_test(unit_test=unit_test)

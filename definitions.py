@@ -33,7 +33,7 @@ class Algorithms(Enum, metaclass=EnumDirectValueMeta):
     LORMLIN = 'lormlin'
     SEV = 'sev'
     RMSEV = 'rmsev'
-    IMV = 'imv'
+    # IMV = 'imv'
 
 
 class CorrelationMethods(Enum):

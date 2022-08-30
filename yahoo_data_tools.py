@@ -16,7 +16,9 @@ import statistics
 from typing import Union
 # import tabula
 
-ymd_date_fmt = '%Y-%m-%d'
+from definitions import StockUniverses
+
+YMD_DATE_FORMAT = '%Y-%m-%d'
 
 
 def print_status_msg(msg):
@@ -32,7 +34,7 @@ def print_status_msg(msg):
 
 def get_date_list(close_df: pd.DataFrame) -> list:
     date_str_list = close_df.index
-    date_str_list = [d.strftime(ymd_date_fmt) for d in date_str_list]
+    date_str_list = [d.strftime(YMD_DATE_FORMAT) for d in date_str_list]
     date_str_list = list(set(date_str_list))
     date_str_list.sort()
     return date_str_list
@@ -43,7 +45,7 @@ def ts_time_rounder(ts):
     return ts.replace(second=0, microsecond=0, minute=0, hour=0)
 
 
-def get_tickers(dataset: str) -> list:
+def get_tickers(dataset: StockUniverses) -> list:
     if dataset == 'STOXXE600':
         # Get string with tickers stored in a file
         symbols_str = symbols_string.get_symbols_string_STOXXE600().split()
@@ -245,7 +247,7 @@ def merge_stk_data(stk_data_filename, stk_data_filename_tag):
 
     for data_file in data_file_collection:
         [df, ts] = pd.read_pickle(data_file)
-        date_str = ts.strftime(ymd_date_fmt)
+        date_str = ts.strftime(YMD_DATE_FORMAT)
         stk_data_ds[date_str] = df
     return stk_data_ds
 
@@ -261,11 +263,11 @@ def merge_mktcap_data(mktcap_filename, mktcap_filename_tag):
 
     for data_file in data_file_collection:
         [df, ts] = pd.read_pickle(data_file)
-        if pd.to_datetime(ts, format=ymd_date_fmt) not in mktcap_df.index:
+        if pd.to_datetime(ts, format=YMD_DATE_FORMAT) not in mktcap_df.index:
             df.name = ts
             mktcap_df = pd.concat([mktcap_df, df])
 
-    df_datetime_idx = pd.to_datetime(mktcap_df.index.to_series(), format=ymd_date_fmt)
+    df_datetime_idx = pd.to_datetime(mktcap_df.index.to_series(), format=YMD_DATE_FORMAT)
 
     mktcap_df.set_index(pd.DatetimeIndex(df_datetime_idx), inplace=True)
     return mktcap_df

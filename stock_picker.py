@@ -157,7 +157,7 @@ def compute_sev_multiproc(d, x_df, y_df,
 class StockPicker:
     def __init__(self,
                  n_stk: int,
-                 algo: str,
+                 algo: Algorithms,
                  ret_df: pd.DataFrame,
                  vol_df: pd.DataFrame,
                  sharpe_df: pd.DataFrame,
@@ -398,8 +398,9 @@ class StockPicker:
                                     multi_proc=multi_proc,
                                     method=CorrelationMethods.LINEAR,
                                     tracking_mode=False)
-        elif self.algo == Algorithms.IMV:
-            stock_df = self.use_backward_subsel()
+
+        # elif self.algo == Algorithms.IMV:
+        #     stock_df = self.use_backward_subsel()
 
         else:
             raise Exception('Algorithm not recognized.')

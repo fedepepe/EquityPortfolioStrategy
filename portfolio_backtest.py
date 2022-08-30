@@ -15,14 +15,15 @@ import time
 import os.path
 import glob
 import pickle
-from typing import Union, Dict, Tuple
+from typing import Union, Dict, Tuple, List
 import matplotlib.pyplot as plt
 
+from definitions import StockUniverses, Algorithms, WeightMethods
 from stock_picker import StockPicker
 from portfolio import Portfolio
 from portfolio_metrics import EnumPerfMetrics
 import portfolio_plot as pf_plot
-from yahoo_data_tools import ymd_date_fmt
+from yahoo_data_tools import YMD_DATE_FORMAT
 
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO)
@@ -40,12 +41,12 @@ def calculate_time(func):
 
 class PortfolioBacktest:
     def __init__(self,
-                 dataset: str,
+                 dataset: StockUniverses,
                  n_stk: Union[int, np.ndarray] = None,
                  n_obs: Union[int, np.ndarray] = None,
                  n_reb: Union[int, np.ndarray] = None,
-                 algos: Union[str, list[str]] = None,
-                 wght_mtds: Union[str, list[str]] = None,
+                 algos: Union[Algorithms, list[Algorithms]] = None,
+                 wght_mtds: Union[WeightMethods, list[WeightMethods]] = None,
                  price_df: pd.DataFrame = None,
                  return_df: pd.DataFrame = None,
                  volat_df: pd.DataFrame = None,
@@ -113,7 +114,7 @@ class PortfolioBacktest:
 
         self.algo = None
         self.wght_mtds = wght_mtds
-        if isinstance(self.wght_mtds, str):
+        if isinstance(self.wght_mtds, WeightMethods):
             self.wght_mtds = [self.wght_mtds]
         self.price_df = price_df
         self.return_df = return_df
@@ -154,12 +155,12 @@ class PortfolioBacktest:
         # Attributes associated to backtesting results
         self.overwrite_results = overwrite_results
         if results_date is None:
-            self.results_date = datetime.today().strftime(ymd_date_fmt)
+            self.results_date = datetime.today().strftime(YMD_DATE_FORMAT)
         else:
             if isinstance(results_date, pd.Timestamp):
-                self.results_date = results_date.strftime(ymd_date_fmt)
+                self.results_date = results_date.strftime(YMD_DATE_FORMAT)
             elif isinstance(results_date, datetime):
-                self.results_date = results_date.strftime(ymd_date_fmt)
+                self.results_date = results_date.strftime(YMD_DATE_FORMAT)
             elif isinstance(results_date, str):
                 self.results_date = results_date
             else:
@@ -198,7 +199,7 @@ class PortfolioBacktest:
         self.n_stk = n_stk
         self.set_results_text_filenames()
 
-    def set_algo(self, algo: str):
+    def set_algo(self, algo: List[Algorithms]):
         self.algo = algo
         self.set_results_text_filenames()
 
@@ -519,7 +520,7 @@ class PortfolioBacktest:
                                                  linestyle=linestyle)
 
         fig_wealth.axes[0].legend(loc='best')
-        fig_wealth.suptitle(self.dataset)
+        fig_wealth.suptitle(self.dataset.value)
         fig_wealth.show()
         return fig_wealth
 

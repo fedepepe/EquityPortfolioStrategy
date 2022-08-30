@@ -13,12 +13,14 @@ from pandas_datareader import data as dataread
 import pickle
 import yfinance as yf
 import glob
-import yahoo_data_tools as ytls
 import os
+
+from definitions import StockUniverses
+import yahoo_data_tools as ytls
 
 
 class YahooDataDownloader:
-    def __init__(self, dataset: str):
+    def __init__(self, dataset: StockUniverses):
         self.dataset = dataset
         self.data_path = f'./{dataset}'
         self.close_intraday_filename = f'{self.data_path}/close_intraday_adj.pkl'
