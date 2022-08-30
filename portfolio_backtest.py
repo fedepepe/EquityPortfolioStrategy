@@ -114,7 +114,7 @@ class PortfolioBacktest:
 
         self.algo = None
         self.wght_mtds = wght_mtds
-        if isinstance(self.wght_mtds, WeightMethods):
+        if isinstance(self.wght_mtds, str):
             self.wght_mtds = [self.wght_mtds]
         self.price_df = price_df
         self.return_df = return_df
@@ -199,7 +199,7 @@ class PortfolioBacktest:
         self.n_stk = n_stk
         self.set_results_text_filenames()
 
-    def set_algo(self, algo: List[Algorithms]):
+    def set_algo(self, algo: Union[Algorithms, List[Algorithms]]):
         self.algo = algo
         self.set_results_text_filenames()
 
