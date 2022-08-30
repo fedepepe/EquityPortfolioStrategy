@@ -520,7 +520,7 @@ class PortfolioBacktest:
                                                  linestyle=linestyle)
 
         fig_wealth.axes[0].legend(loc='best')
-        fig_wealth.suptitle(self.dataset)
+        fig_wealth.suptitle(str(self.dataset))
         fig_wealth.show()
         return fig_wealth
 
