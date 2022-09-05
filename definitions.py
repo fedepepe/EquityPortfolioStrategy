@@ -1,3 +1,4 @@
+from typing import NamedTuple
 from enum import Enum, EnumMeta, auto
 
 
@@ -34,6 +35,27 @@ class Algorithms(Enum, metaclass=EnumDirectValueMeta):
     SEV = 'sev'
     RMSEV = 'rmsev'
     # IMV = 'imv'
+
+
+class Strategy(NamedTuple):
+    dataset: StockUniverses
+    algo: Algorithms
+    wght_mtd: WeightMethods
+    n_stk: int
+    n_obs: int
+
+
+class TopStrategies:
+    SP500 = Strategy(dataset=StockUniverses.SP500,
+                     algo=Algorithms.LIN,
+                     wght_mtd=WeightMethods.LOTP,
+                     n_stk=10,
+                     n_obs=90)
+    STOXXE600 = Strategy(dataset=StockUniverses.STOXXE600,
+                         algo=Algorithms.RMLIN,
+                         wght_mtd=WeightMethods.ILOTP,
+                         n_stk=10,
+                         n_obs=60)
 
 
 class CorrelationMethods(Enum):

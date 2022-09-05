@@ -12,7 +12,7 @@ from typing import Union, List
 from datetime import datetime
 import pandas as pd
 
-from definitions import StockUniverses, WeightMethods, Algorithms
+from definitions import StockUniverses, WeightMethods, Algorithms, TopStrategies
 from portfolio import EnumPerfMetrics
 from portfolio_backtest import PortfolioBacktest
 from yahoo_data_downloader import YahooDataDownloader
@@ -143,8 +143,7 @@ def run_unit_test(unit_test: UnitTests):
         plot_results(pf_backtest=pf_backtest)
 
     elif unit_test == UnitTests.RUN_DOWNLOAD_SWEEP:
-        # dataset_list = [StockUniverses.SP500, StockUniverses.STOXXE600]
-        dataset_list = [StockUniverses.STOXXE600]
+        dataset_list = [StockUniverses.SP500, StockUniverses.STOXXE600]
         main_download(dataset_list=dataset_list)
         algos = [field.value for field in Algorithms]
         n_stk = 10
@@ -158,13 +157,13 @@ def run_unit_test(unit_test: UnitTests):
             pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.IC)
 
     elif unit_test == UnitTests.RUN_ALLOCATION:
-        dataset = StockUniverses.STOXXE600
-        algo = Algorithms.LOLIN
-        wght_mtd = WeightMethods.ILOTP
-        n_stk = 10  # Number of stocks to hold in the portfolio
-        n_obs = 60  # Number of past observations to use as training data
-        pf_backtest = create_backtest_obj(dataset=dataset, wght_mtds=wght_mtd,
-                                          date_start=pd.Timestamp('2022-08-27T12', tz='UTC'))
+        strategy = TopStrategies.SP500
+        dataset = strategy.dataset
+        algo = strategy.algo
+        wght_mtd = strategy.wght_mtd
+        n_stk = strategy.n_stk
+        n_obs = strategy.n_obs
+        pf_backtest = create_backtest_obj(dataset=dataset, wght_mtds=wght_mtd)
         pf_backtest.n_obs = n_obs
         pf_backtest.set_n_stk(n_stk=n_stk)
         pf_backtest.set_algo(algo=algo)
@@ -182,5 +181,5 @@ def run_unit_test(unit_test: UnitTests):
 
 
 if __name__ == '__main__':
-    unit_test = UnitTests.RUN_SINGLE
+    unit_test = UnitTests.RUN_ALLOCATION
     run_unit_test(unit_test=unit_test)
