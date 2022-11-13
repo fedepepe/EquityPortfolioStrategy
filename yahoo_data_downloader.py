@@ -214,9 +214,9 @@ class YahooDataDownloader:
                 end_date = date_time_index[-1] + dt.timedelta(days=1)
 
             # Set asset symbol for download
-            if self.dataset == 'STOXXE600':
+            if self.dataset == StockUniverses.STOXXE600:
                 symbol = '^STOXX'
-            elif self.dataset == 'SP500':
+            elif self.dataset == StockUniverses.SP500:
                 symbol = '^SP500TR'
             else:
                 return None

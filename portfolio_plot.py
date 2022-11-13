@@ -34,7 +34,7 @@ def plot_cum_wealth(cum_wealth_hist: pd.Series,
     if descr is None:
         descr = 'Strategy'
     else:
-        descr = f'Strategy: {descr})'
+        descr = f'Strategy: {descr}'
 
     if figure is None:
         figure = plt.figure()

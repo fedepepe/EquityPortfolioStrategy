@@ -11,7 +11,10 @@ from enum import Enum, auto
 from typing import Union, List
 from datetime import datetime
 import pandas as pd
+from sys import platform
+import warnings
 
+import definitions
 from definitions import StockUniverses, WeightMethods, Algorithms, TopStrategies
 from portfolio import EnumPerfMetrics
 from portfolio_backtest import PortfolioBacktest
@@ -19,13 +22,13 @@ from yahoo_data_downloader import YahooDataDownloader
 
 
 # %% Load data
-def main_download(dataset_list: list[StockUniverses]) -> None:
+def main_download(dataset_list: List[StockUniverses]) -> None:
     for ds in dataset_list:
         yahoo_download = YahooDataDownloader(ds)
         yahoo_download.download_latest_data()
 
 
-def main_download_stk_data(dataset_list: list[StockUniverses]) -> None:
+def main_download_stk_data(dataset_list: List[StockUniverses]) -> None:
     from yahoo_data_tools import get_tickers
     for ds in dataset_list:
         yahoo_download = YahooDataDownloader(ds)
@@ -48,20 +51,21 @@ def create_backtest_obj(dataset: StockUniverses,
                         algos: Union[Algorithms, List[Algorithms]] = None,
                         wght_mtds: Union[WeightMethods, List[WeightMethods]] = None,
                         date_start: datetime = None,
-                        date_stop: pd.Timestamp = None
+                        date_stop: datetime = None,
+                        multi_proc: bool = None
                         ) -> PortfolioBacktest:
     stk_data, mkt_data = load_data(dataset)
 
     close_df, return_df, real_vol_df, mktcap_df, close_adj_ds = [d for d in stk_data]
     mkt_ret_df, mkt_idx_df = [d for d in mkt_data]
 
-    if date_start is not None:
-        close_df = close_df.loc[close_df.index <= date_start]
-        return_df = return_df.loc[return_df.index <= date_start]
-        real_vol_df = real_vol_df.loc[real_vol_df.index <= date_start]
-        mktcap_df = mktcap_df.loc[mktcap_df.index <= date_start]
-        mkt_ret_df = mkt_ret_df.loc[mkt_ret_df.index <= date_start]
-        mkt_idx_df = mkt_idx_df.loc[mkt_idx_df.index <= date_start]
+    # if date_start is not None:
+    #     close_df = close_df.loc[close_df.index.tz_localize(None) >= date_start]
+    #     return_df = return_df.loc[return_df.index.tz_localize(None) >= date_start]
+    #     real_vol_df = real_vol_df.loc[real_vol_df.index.tz_localize(None) >= date_start]
+    #     mktcap_df = mktcap_df.loc[mktcap_df.index.tz_localize(None) >= date_start]
+    #     mkt_ret_df = mkt_ret_df.loc[mkt_ret_df.index.tz_localize(None) >= date_start]
+    #     mkt_idx_df = mkt_idx_df.loc[mkt_idx_df.index.tz_localize(None) >= date_start]
 
     # Load backtesting parameters
     with open('parameters.pkl', 'rb') as f:
@@ -74,8 +78,8 @@ def create_backtest_obj(dataset: StockUniverses,
     pf_backtest = PortfolioBacktest(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
                                     algos=algos, wght_mtds=wght_mtds, price_df=close_df,
                                     return_df=return_df, volat_df=real_vol_df, mktcap_df=mktcap_df,
-                                    bema_idx_df=mkt_idx_df, risk_free_ret=None,
-                                    idx_start=40, lag=data_lag,
+                                    bema_idx_df=mkt_idx_df, risk_free_ret=None, date_start=date_start,
+                                    lag=data_lag,
                                     trsctn_fee_fix=trsctn_fee_fix, trsctn_fee_prop=trsctn_fee_prop,
                                     risk_avers_factor=None,
                                     multi_proc=True, cv_opt_bw=False, save_stk_hist=False,
@@ -103,8 +107,8 @@ class UnitTests(Enum):
 
 def run_unit_test(unit_test: UnitTests):
     dataset_list = [StockUniverses.SP500, StockUniverses.STOXXE600]
-    wght_mtds = [WeightMethods.EQ, 
-                 WeightMethods.MKTCAP, 
+    wght_mtds = [WeightMethods.EQ,
+                 WeightMethods.MKTCAP,
                  WeightMethods.RISKPAR,
                  WeightMethods.LOTP,
                  WeightMethods.ILOTP]
@@ -116,13 +120,21 @@ def run_unit_test(unit_test: UnitTests):
         main_download_stk_data(dataset_list=dataset_list)
 
     elif unit_test == UnitTests.RUN_SINGLE:
-        dataset = StockUniverses.STOXXE600
-        algos = Algorithms.RMLIN
-        n_stk = 10  # Number of stocks to hold in the portfolio
-        n_obs = 60  # Number of past observations to use as training data
-        n_reb = 20  # Rate of portfolio rebalancing (in trading days)
+        # strategy = TopStrategies.SP500.value
+        strategy = definitions.Strategy(dataset=StockUniverses.SP500,
+                                        algo=Algorithms.RMSEV,
+                                        wght_mtd=WeightMethods.LOTP,
+                                        n_stk=10,
+                                        n_obs=90)
+        dataset = strategy.dataset
+        algo = strategy.algo
+        wght_mtd = strategy.wght_mtd
+        n_stk = strategy.n_stk
+        n_obs = strategy.n_obs
+        n_reb = 60
+        date_start = pd.to_datetime('2021-03-01')
         pf_backtest = create_backtest_obj(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
-                                          algos=algos, wght_mtds=wght_mtds)
+                                          algos=algo, wght_mtds=wght_mtd, date_start=date_start)
         pf_backtest.backtest()
         plot_results(pf_backtest=pf_backtest)
 
@@ -144,42 +156,43 @@ def run_unit_test(unit_test: UnitTests):
 
     elif unit_test == UnitTests.RUN_DOWNLOAD_SWEEP:
         dataset_list = [StockUniverses.SP500, StockUniverses.STOXXE600]
+        date_start = pd.to_datetime('2021-03-01')
         main_download(dataset_list=dataset_list)
-        algos = [field.value for field in Algorithms]
+        algos = [algo.value for algo in Algorithms]
         n_stk = 10
-        n_obs = np.arange(20, 105, 10)
-        n_reb = np.arange(20, 65, 5)
+        n_obs = np.arange(90, 105, 10)
+        n_reb = np.arange(60, 65, 5)
         for dataset in dataset_list:
             pf_backtest = create_backtest_obj(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
-                                              algos=algos, wght_mtds=wght_mtds)
+                                              algos=algos, wght_mtds=wght_mtds, date_start=date_start)
             pf_backtest.backtest()
             pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.SHARPE)
             pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.IC)
 
     elif unit_test == UnitTests.RUN_ALLOCATION:
-        strategy = TopStrategies.SP500
-        dataset = strategy.dataset
-        algo = strategy.algo
-        wght_mtd = strategy.wght_mtd
-        n_stk = strategy.n_stk
-        n_obs = strategy.n_obs
-        pf_backtest = create_backtest_obj(dataset=dataset, wght_mtds=wght_mtd)
-        pf_backtest.n_obs = n_obs
-        pf_backtest.set_n_stk(n_stk=n_stk)
-        pf_backtest.set_algo(algo=algo)
-        pf_alloc_dct = pf_backtest.allocate()
-        df = pd.DataFrame(pf_alloc_dct[wght_mtd])
-        df = df.reset_index()
-        df = df.rename(columns={"index": "Ticker"})
-        df = df.sort_values('Weight', ascending=False)
-        timestamp = pf_backtest.price_df.index[-1]
-        print(timestamp)
-        print(df)
-        date_str = timestamp.strftime("%Y_%m_%d")
-        file_name = f"./predictions/{dataset}_{date_str}_{algo}_{wght_mtd}_{n_stk}_{n_obs}.xlsx"
-        df.to_excel(file_name)
+        for strategy in TopStrategies:
+            dataset = strategy.value.dataset
+            algo = strategy.value.algo
+            wght_mtd = strategy.value.wght_mtd
+            n_stk = strategy.value.n_stk
+            n_obs = strategy.value.n_obs
+            pf_backtest = create_backtest_obj(dataset=dataset, wght_mtds=wght_mtd)
+            pf_backtest.n_obs = n_obs
+            pf_backtest.set_n_stk(n_stk=n_stk)
+            pf_backtest.set_algo(algo=algo)
+            pf_alloc_dct = pf_backtest.allocate()
+            df = pd.DataFrame(pf_alloc_dct[wght_mtd])
+            df = df.reset_index()
+            df = df.rename(columns={"index": "Ticker"})
+            df = df.sort_values('Weight', ascending=False)
+            timestamp = pf_backtest.price_df.index[-1]
+            print(timestamp)
+            print(df)
+            date_str = timestamp.strftime("%Y_%m_%d")
+            file_name = f"./predictions/{dataset}_{date_str}_{algo}_{wght_mtd}_{n_stk}_{n_obs}.xlsx"
+            df.to_excel(file_name)
 
 
 if __name__ == '__main__':
-    unit_test = UnitTests.RUN_ALLOCATION
+    unit_test = UnitTests.RUN_SINGLE
     run_unit_test(unit_test=unit_test)

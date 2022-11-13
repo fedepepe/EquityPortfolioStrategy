@@ -45,16 +45,16 @@ class PortfolioBacktest:
                  n_stk: Union[int, np.ndarray] = None,
                  n_obs: Union[int, np.ndarray] = None,
                  n_reb: Union[int, np.ndarray] = None,
-                 algos: Union[Algorithms, list[Algorithms]] = None,
-                 wght_mtds: Union[WeightMethods, list[WeightMethods]] = None,
+                 algos: Union[Algorithms, List[Algorithms]] = None,
+                 wght_mtds: Union[WeightMethods, List[WeightMethods]] = None,
                  price_df: pd.DataFrame = None,
                  return_df: pd.DataFrame = None,
                  volat_df: pd.DataFrame = None,
                  mktcap_df: pd.DataFrame = None,
                  bema_idx_df: pd.Series = None,
                  risk_free_ret: Union[float, pd.Series] = None,
+                 date_start: pd.Timestamp = None,
                  endow: float = 1e6,
-                 idx_start: int = None,
                  lag: int = 1,
                  nsel: float = 0.1,
                  trsctn_fee_fix: float = 0.,
@@ -91,6 +91,7 @@ class PortfolioBacktest:
         Path(self.results_dir).mkdir(parents=True, exist_ok=True)
 
         self.results = {}
+
         if not any([x is None for x in [n_stk, n_obs, n_reb, algos]]):
             if len(self.n_stk_ar) * len(self.n_obs_ar) * len(self.n_reb_ar) * len(self.algos) == 1:
                 self.parametric_sweep = False
@@ -133,10 +134,13 @@ class PortfolioBacktest:
         if n_obs is not None:
             """ when n_obs is swept, idx_start can be set equal to the maximum n. of observations,
             to have all runs starting at the same trading day """
-            if idx_start is None:
-                self.idx_start = max(self.n_obs_ar) + lag - 1
+            self.idx_start = max(self.n_obs_ar) + lag - 1
+        if date_start is not None:
+            if self.idx_start is None:
+                self.idx_start = (price_df.index.tz_localize(None) <= date_start).sum() - 1
             else:
-                self.idx_start = max(idx_start, max(self.n_obs_ar)) + lag - 1
+                self.idx_start = max(self.idx_start, (price_df.index.tz_localize(None) <= date_start).sum() - 1)
+
         self.lag = lag  # Time lag (in days) between last observation and of rebalancing
         self.nsel = nsel
         self.trsctn_fee_fix = trsctn_fee_fix
@@ -283,15 +287,15 @@ class PortfolioBacktest:
         # Make a copy of last price dataframe that can be manipulated
         price_df = self.price_df.copy()
 
-        # Select only data samples between start and stop date, if given
-        if start_date is not None:
-            price_df = price_df.loc[price_df.index >= start_date]
-        if stop_date is not None:
-            price_df = price_df.loc[price_df.index <= stop_date]
-
-        # Check if there are enough samples for the first iteration
-        if price_df.shape[0] <= self.n_obs:
-            raise Exception('Not enough data samples for backtesting.')
+        # # Select only data samples between start and stop date, if given
+        # if start_date is not None:
+        #     price_df = price_df.loc[price_df.index.tz_localize(None) >= start_date]
+        # if stop_date is not None:
+        #     price_df = price_df.loc[price_df.index.tz_localize(None) <= stop_date]
+        #
+        # # Check if there are enough samples for the first iteration
+        # if price_df.shape[0] <= self.n_obs:
+        #     raise Exception('Not enough data samples for backtesting.')
 
         # Get full list of days for backtesting and those when rebalancing occurs
         # self.idx_start is the first trading day, so the portfolios are initialized
@@ -346,7 +350,7 @@ class PortfolioBacktest:
             self.pf_dict['mkt'].val_tot_hist = self.bema_idx_df / self.bema_idx_df.iloc[0] * self.endow
             self.pf_dict['mkt'].val_trans_hist = pd.Series(data=0, index=self.timestamps)
 
-    def backtest(self, start_date: pd.Timestamp = None, stop_date: pd.Timestamp = None):
+    def backtest(self, date_start: pd.Timestamp = None, date_stop: pd.Timestamp = None):
         if self.overwrite_results:
             if os.path.isfile(self.results_pickle_filename):
                 os.remove(self.results_pickle_filename)
@@ -369,7 +373,7 @@ class PortfolioBacktest:
 
                         print(f'\n --- Running sim. {n_done + 1} of {n_sim} ---')
 
-                        self.backtest_single(start_date=start_date, stop_date=stop_date)
+                        self.backtest_single(start_date=date_start, stop_date=date_stop)
 
                         end_curr = time.perf_counter()
                         elapsed = end_curr - start  # Total time elapsed
@@ -512,11 +516,13 @@ class PortfolioBacktest:
         for wm, portfolio in self.pf_dict.items():
             if wm == 'mkt' or wm == 'market':
                 linestyle = '--'
+                algo = 'market'
             else:
                 linestyle = '-'
+                algo = f'algo={self.algo} wght={wm}'
             fig_wealth = pf_plot.plot_cum_wealth(self.pf_dict[wm].val_tot_hist,
                                                  figure=fig_wealth,
-                                                 descr=f'algo={self.algo} wght={wm}',
+                                                 descr=algo,
                                                  linestyle=linestyle)
 
         fig_wealth.axes[0].legend(loc='best')
