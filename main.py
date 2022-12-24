@@ -5,30 +5,29 @@ Created on Thu Mar 11 12:12:38 2021
 
 @author: federico
 """
-import numpy as np
 import pickle
+from datetime import datetime
 from enum import Enum, auto
 from typing import Union, List
-from datetime import datetime
+
+import numpy as np
 import pandas as pd
-from sys import platform
-import warnings
 
 import definitions
-from definitions import StockUniverses, WeightMethods, Algorithms, TopStrategies
+from definitions import StockUniverses, WeightMethods, Algorithms, Strategy, TopStrategies
 from portfolio import EnumPerfMetrics
 from portfolio_backtest import PortfolioBacktest
 from yahoo_data_downloader import YahooDataDownloader
 
 
 # %% Load data
-def main_download(dataset_list: List[StockUniverses]) -> None:
+def main_download(dataset_list: List[StockUniverses] = (StockUniverses.SP500, StockUniverses.STOXXE600)):
     for ds in dataset_list:
         yahoo_download = YahooDataDownloader(ds)
         yahoo_download.download_latest_data()
 
 
-def main_download_stk_data(dataset_list: List[StockUniverses]) -> None:
+def main_download_stk_data(dataset_list: List[StockUniverses] = (StockUniverses.SP500, StockUniverses.STOXXE600)):
     from yahoo_data_tools import get_tickers
     for ds in dataset_list:
         yahoo_download = YahooDataDownloader(ds)
@@ -51,23 +50,16 @@ def create_backtest_obj(dataset: StockUniverses,
                         algos: Union[Algorithms, List[Algorithms]] = None,
                         wght_mtds: Union[WeightMethods, List[WeightMethods]] = None,
                         date_start: datetime = None,
-                        date_stop: datetime = None,
-                        multi_proc: bool = None
                         ) -> PortfolioBacktest:
     stk_data, mkt_data = load_data(dataset)
 
     close_df, return_df, real_vol_df, mktcap_df, close_adj_ds = [d for d in stk_data]
     mkt_ret_df, mkt_idx_df = [d for d in mkt_data]
 
-    # if date_start is not None:
-    #     close_df = close_df.loc[close_df.index.tz_localize(None) >= date_start]
-    #     return_df = return_df.loc[return_df.index.tz_localize(None) >= date_start]
-    #     real_vol_df = real_vol_df.loc[real_vol_df.index.tz_localize(None) >= date_start]
-    #     mktcap_df = mktcap_df.loc[mktcap_df.index.tz_localize(None) >= date_start]
-    #     mkt_ret_df = mkt_ret_df.loc[mkt_ret_df.index.tz_localize(None) >= date_start]
-    #     mkt_idx_df = mkt_idx_df.loc[mkt_idx_df.index.tz_localize(None) >= date_start]
-
     # Load backtesting parameters
+    import os
+    os.system(f"cat ./parameters.pkl > /dev/null")
+
     with open('parameters.pkl', 'rb') as f:
         parameters = pickle.load(f)
 
@@ -85,6 +77,21 @@ def create_backtest_obj(dataset: StockUniverses,
                                     multi_proc=True, cv_opt_bw=False, save_stk_hist=False,
                                     output_figs_format='png')
     return pf_backtest
+
+
+def run_sweep(strategies: List[Strategy]):
+    date_start = pd.to_datetime('2021-02-01')
+    n_reb = np.arange(20, 65, 5)
+    for strategy in strategies:
+        dataset = strategy.dataset
+        algos = strategy.algo
+        wght_mtds = strategy.wght_mtds
+        n_stk = strategy.n_stk
+        n_obs = strategy.n_obs
+        pf_backtest = create_backtest_obj(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
+                                          algos=algos, wght_mtds=wght_mtds, date_start=date_start)
+        pf_backtest.backtest_sweep_start()
+        plot_results(pf_backtest=pf_backtest)
 
 
 def plot_results(pf_backtest: PortfolioBacktest):
@@ -106,48 +113,44 @@ class UnitTests(Enum):
 
 
 def run_unit_test(unit_test: UnitTests):
-    dataset_list = [StockUniverses.SP500, StockUniverses.STOXXE600]
-    wght_mtds = [WeightMethods.EQ,
-                 WeightMethods.MKTCAP,
-                 WeightMethods.RISKPAR,
-                 WeightMethods.LOTP,
-                 WeightMethods.ILOTP]
+    strategies = [
+        # Strategy(dataset=StockUniverses.SP500, algo=Algorithms.SEV,
+        #          wght_mtds=[WeightMethods.EQ, WeightMethods.MKTCAP], n_stk=10, n_obs=np.arange(20, 105, 10)),
+        # Strategy(dataset=StockUniverses.SP500, algo=Algorithms.RMSEV,
+        #          wght_mtds=[WeightMethods.EQ, WeightMethods.MKTCAP], n_stk=10, n_obs=np.arange(20, 105, 10)),
+        Strategy(dataset=StockUniverses.STOXXE600, algo=Algorithms.LOLIN,
+                 wght_mtds=[WeightMethods.EQ, WeightMethods.MKTCAP], n_stk=10, n_obs=np.arange(20, 105, 10)),
+        Strategy(dataset=StockUniverses.STOXXE600, algo=Algorithms.LORMLIN,
+                 wght_mtds=[WeightMethods.EQ, WeightMethods.MKTCAP], n_stk=10, n_obs=np.arange(20, 105, 10)),
+    ]
 
     if unit_test == UnitTests.RUN_DOWNLOAD_ALL:
-        main_download(dataset_list=dataset_list)
+        main_download()
 
     elif unit_test == UnitTests.RUN_DOWNLOAD_STOCK_DATA:
-        main_download_stk_data(dataset_list=dataset_list)
+        main_download_stk_data()
 
     elif unit_test == UnitTests.RUN_SINGLE:
         # strategy = TopStrategies.SP500.value
         strategy = definitions.Strategy(dataset=StockUniverses.SP500,
                                         algo=Algorithms.RMSEV,
-                                        wght_mtd=WeightMethods.LOTP,
+                                        wght_mtds=WeightMethods.LOTP,
                                         n_stk=10,
                                         n_obs=90)
         dataset = strategy.dataset
         algo = strategy.algo
-        wght_mtd = strategy.wght_mtd
+        wght_mtd = strategy.wght_mtds
         n_stk = strategy.n_stk
         n_obs = strategy.n_obs
         n_reb = 60
-        date_start = pd.to_datetime('2021-03-01')
+        date_start = pd.to_datetime('2021-06-01')
         pf_backtest = create_backtest_obj(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
                                           algos=algo, wght_mtds=wght_mtd, date_start=date_start)
-        pf_backtest.backtest()
+        pf_backtest.backtest_sweep_start()
         plot_results(pf_backtest=pf_backtest)
 
     elif unit_test == UnitTests.RUN_SWEEP:
-        dataset = StockUniverses.STOXXE600
-        algos = [field.value for field in Algorithms]
-        n_stk = 10  # Number of stocks to hold in the portfolio
-        n_obs = np.arange(20, 105, 10)  # Number of past observations to use as training data
-        n_reb = np.arange(20, 65, 5)  # Rate of portfolio rebalancing (in trading days)
-        pf_backtest = create_backtest_obj(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
-                                          algos=algos, wght_mtds=wght_mtds)
-        pf_backtest.backtest()
-        plot_results(pf_backtest=pf_backtest)
+        run_sweep(strategies=strategies)
 
     elif unit_test == UnitTests.PLOT_RESULTS_SWEEP:
         dataset = StockUniverses.SP500
@@ -155,19 +158,8 @@ def run_unit_test(unit_test: UnitTests):
         plot_results(pf_backtest=pf_backtest)
 
     elif unit_test == UnitTests.RUN_DOWNLOAD_SWEEP:
-        dataset_list = [StockUniverses.SP500, StockUniverses.STOXXE600]
-        date_start = pd.to_datetime('2021-03-01')
-        main_download(dataset_list=dataset_list)
-        algos = [algo.value for algo in Algorithms]
-        n_stk = 10
-        n_obs = np.arange(90, 105, 10)
-        n_reb = np.arange(60, 65, 5)
-        for dataset in dataset_list:
-            pf_backtest = create_backtest_obj(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
-                                              algos=algos, wght_mtds=wght_mtds, date_start=date_start)
-            pf_backtest.backtest()
-            pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.SHARPE)
-            pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.IC)
+        main_download()
+        run_sweep(strategies=strategies)
 
     elif unit_test == UnitTests.RUN_ALLOCATION:
         for strategy in TopStrategies:
@@ -194,5 +186,5 @@ def run_unit_test(unit_test: UnitTests):
 
 
 if __name__ == '__main__':
-    unit_test = UnitTests.RUN_SINGLE
+    unit_test = UnitTests.RUN_DOWNLOAD_ALL
     run_unit_test(unit_test=unit_test)

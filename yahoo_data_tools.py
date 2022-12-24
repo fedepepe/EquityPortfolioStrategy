@@ -157,6 +157,7 @@ def reindex_by_date(df_old: Union[pd.Series, pd.DataFrame],
 @print_status_msg('Building price dataset')
 def merge_stock_prices(close_adj_filename, price_filename_tag):
     if os.path.isfile(close_adj_filename):
+        os.system(f"ll {os.path.dirname(close_adj_filename)}")
         close_ds = pd.read_pickle(close_adj_filename)
     else:
         close_ds = {}
@@ -238,6 +239,8 @@ def adjust_stk_prices(close_ds, close_daily_df):
 @print_status_msg('Building stock data dataset')
 def merge_stk_data(stk_data_filename, stk_data_filename_tag):
     if os.path.isfile(stk_data_filename):
+        os.system(f"cd {os.path.dirname(stk_data_filename)}")
+        os.system("ls -lh")
         stk_data_ds = pd.read_pickle(stk_data_filename)
     else:
         stk_data_ds = {}
@@ -254,6 +257,8 @@ def merge_stk_data(stk_data_filename, stk_data_filename_tag):
 
 def merge_mktcap_data(mktcap_filename, mktcap_filename_tag):
     if os.path.isfile(mktcap_filename):
+        os.system(f"cd {os.path.dirname(mktcap_filename)}")
+        os.system("ls -lh")
         mktcap_df = pd.read_pickle(mktcap_filename)
     else:
         mktcap_df = pd.DataFrame()

@@ -5,24 +5,25 @@ Created on Sat Jul  3 12:23:10 2021
 
 @author: federico
 """
+import glob
 import logging
+import os.path
+import pickle
+import time
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Union, Dict, Tuple, List
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from datetime import datetime
-from pathlib import Path
-import time
-import os.path
-import glob
-import pickle
-from typing import Union, Dict, Tuple, List
-import matplotlib.pyplot as plt
+import statsmodels.api as sm
 
+import portfolio_plot as pf_plot
 from definitions import StockUniverses, Algorithms, WeightMethods
-from stock_picker import StockPicker
 from portfolio import Portfolio
 from portfolio_metrics import EnumPerfMetrics
-import portfolio_plot as pf_plot
+from stock_picker import StockPicker
 from yahoo_data_tools import YMD_DATE_FORMAT
 
 logger = logging.getLogger()
@@ -36,6 +37,7 @@ def calculate_time(func):
         end = time.perf_counter()
         elapsed = end - start
         print(f'\n --- Simulation time: {time.strftime("%Mm %Ss", time.gmtime(elapsed))} --- ')
+
     return wrapper
 
 
@@ -54,6 +56,7 @@ class PortfolioBacktest:
                  bema_idx_df: pd.Series = None,
                  risk_free_ret: Union[float, pd.Series] = None,
                  date_start: pd.Timestamp = None,
+                 date_stop: pd.Timestamp = None,
                  endow: float = 1e6,
                  lag: int = 1,
                  nsel: float = 0.1,
@@ -84,64 +87,32 @@ class PortfolioBacktest:
         if isinstance(algos, str):
             self.algos = [self.algos]
 
-        if results_dir is None:
-            self.results_dir = f'./{dataset}/results/'
-        else:
-            self.results_dir = results_dir
-        Path(self.results_dir).mkdir(parents=True, exist_ok=True)
-
-        self.results = {}
-
-        if not any([x is None for x in [n_stk, n_obs, n_reb, algos]]):
-            if len(self.n_stk_ar) * len(self.n_obs_ar) * len(self.n_reb_ar) * len(self.algos) == 1:
-                self.parametric_sweep = False
-                if results_tag is None:
-                    self.results_tag = ''
-                else:
-                    self.results_tag = results_tag
-            else:
-                self.parametric_sweep = True
-                if results_tag is None:
-                    self.results_tag = 'sw'
-                else:
-                    self.results_tag = results_tag
-        else:
-            self.load_results()
-            if len(self.results) == 1:
-                self.parametric_sweep = False
-            else:
-                self.parametric_sweep = True
-            self.results_tag = ''
-
+        self.n_stk, self.n_obs, self.n_reb = None, None, None
         self.algo = None
+
+        self.results_dir = results_dir
+        self.results = {}
+        self.results_tag = results_tag
+
         self.wght_mtds = wght_mtds
-        if isinstance(self.wght_mtds, str):
-            self.wght_mtds = [self.wght_mtds]
         self.price_df = price_df
         self.return_df = return_df
         self.volat_df = volat_df
         self.mktcap_df = mktcap_df
         self.bema_idx_df = bema_idx_df
-        if risk_free_ret is None:
-            self.risk_free_ret = 0
-            exc_ret_df = return_df
-        else:
-            self.risk_free_ret = risk_free_ret
-            exc_ret_df = return_df.subtract(risk_free_ret, axis=0)
-        # TO DO: include also the volatility of the benchmark in the Sharpe ratio formula
-        self.sharpe_df = exc_ret_df / volat_df
+        self.risk_free_ret = risk_free_ret
         self.endow = endow
-        if n_obs is not None:
-            """ when n_obs is swept, idx_start can be set equal to the maximum n. of observations,
-            to have all runs starting at the same trading day """
-            self.idx_start = max(self.n_obs_ar) + lag - 1
-        if date_start is not None:
-            if self.idx_start is None:
-                self.idx_start = (price_df.index.tz_localize(None) <= date_start).sum() - 1
-            else:
-                self.idx_start = max(self.idx_start, (price_df.index.tz_localize(None) <= date_start).sum() - 1)
 
-        self.lag = lag  # Time lag (in days) between last observation and of rebalancing
+        self.pf_dict = {}
+
+        self.date_start = date_start
+        self.date_stop = date_stop
+
+        # timestamps involved into backtesting
+        self.timestamps = None
+        self.timestamps_reb = None
+
+        self.lag = lag  # time lag (in days) between last observation and of rebalancing
         self.nsel = nsel
         self.trsctn_fee_fix = trsctn_fee_fix
         self.trsctn_fee_prop = trsctn_fee_prop
@@ -151,34 +122,70 @@ class PortfolioBacktest:
         self.cv_opt_bw = cv_opt_bw
         self.save_stk_hist = save_stk_hist
 
-        # Initialize portfolio(s)
-        self.pf_dict = None
-        if wght_mtds is not None:
-            self.init_portfolios(self.price_df.index[0])
-
-        # Attributes associated to backtesting results
+        # attributes associated to backtesting results
         self.overwrite_results = overwrite_results
-        if results_date is None:
-            self.results_date = datetime.today().strftime(YMD_DATE_FORMAT)
-        else:
-            if isinstance(results_date, pd.Timestamp):
-                self.results_date = results_date.strftime(YMD_DATE_FORMAT)
-            elif isinstance(results_date, datetime):
-                self.results_date = results_date.strftime(YMD_DATE_FORMAT)
-            elif isinstance(results_date, str):
-                self.results_date = results_date
-            else:
-                raise Exception('Results date badly specified.')
+        self.results_date = results_date
         self.results_filenames = {}
-        self.results_pickle_filename = f'{self.get_results_base_filename()}.pkl'
-
         self.output_figs_format = output_figs_format
 
-        self.n_stk, self.n_obs, self.n_reb = None, None, None
+        self.__post_init__()
 
-        # Timestamps involved into backtesting
-        self.timestamps = None
-        self.timestamps_reb = None
+    def __post_init__(self):
+        if self.risk_free_ret is None:
+            self.risk_free_ret = 0
+            exc_ret_df = self.return_df
+        else:
+            exc_ret_df = self.return_df.subtract(self.risk_free_ret, axis=0)
+        # TO DO: include also the volatility of the benchmark in the Sharpe ratio formula
+        self.sharpe_df = exc_ret_df / self.volat_df
+
+        if self.results_dir is None:
+            self.results_dir = f'./{self.dataset}/results/'
+        Path(self.results_dir).mkdir(parents=True, exist_ok=True)
+
+        if not any([x is None for x in [self.n_stk_ar, self.n_obs_ar, self.n_reb_ar, self.algos]]):
+            if len(self.n_stk_ar) * len(self.n_obs_ar) * len(self.n_reb_ar) * len(self.algos) == 1:
+                self.parametric_sweep = False
+                if self.results_tag is None:
+                    self.results_tag = ''
+            else:
+                self.parametric_sweep = True
+                if self.results_tag is None:
+                    self.results_tag = 'sw'
+        else:
+            self.load_results()
+            if len(self.results) == 1:
+                self.parametric_sweep = False
+            else:
+                self.parametric_sweep = True
+            self.results_tag = ''
+
+        if self.date_start is not None:
+            self.idx_start = (self.price_df.index.tz_localize(None) < self.date_start).sum() + self.lag - 1
+
+        elif self.n_obs_ar is not None:
+            # when n_obs is swept, idx_start can be set equal to the maximum n. of observations,
+            # to have all runs starting at the same trading day
+            self.idx_start = max(self.n_obs_ar) + self.lag - 1
+
+        if isinstance(self.wght_mtds, str):
+            self.wght_mtds = [self.wght_mtds]
+
+        # initialize portfolio(s)
+        if self.wght_mtds is not None:
+            self.init_portfolios(self.price_df.index[0])
+
+        if self.results_date is None:
+            self.results_date = datetime.today().strftime(YMD_DATE_FORMAT)
+        else:
+            if isinstance(self.results_date, pd.Timestamp):
+                self.results_date = self.results_date.strftime(YMD_DATE_FORMAT)
+            elif isinstance(self.results_date, datetime):
+                self.results_date = self.results_date.strftime(YMD_DATE_FORMAT)
+            else:
+                raise Exception('Results date badly specified.')
+
+        self.results_pickle_filename = f'{self.get_results_base_filename()}.pkl'
 
     def init_portfolios(self, timestamp):
         # Create portfolio(s)
@@ -216,58 +223,51 @@ class PortfolioBacktest:
                  price_curr_dct: Dict = None) -> Dict[str, pd.Series]:
         date_time_idx = self.return_df.index
 
-        # If no argument is passed, simply compute allocation at the end of 
-        # the given time frame of observations
+        # if no argument is passed, simply compute allocation at the end of the given time frame of observations
         if timestamp is None:
             timestamp = date_time_idx[-1]
         if price_curr_dct is None:
             price_curr_dct = self.price_df.loc[timestamp].to_dict()
 
-        # Exclude a number 'lag' of samples before and including the current timestamp
-        # and then get the last n_obs observations
-        ret_df_win = self.return_df[date_time_idx <= timestamp]
-        ret_df_win = ret_df_win[:-self.lag].tail(self.n_obs)
-        vol_df_win = self.volat_df[date_time_idx <= timestamp]
-        vol_df_win = vol_df_win[:-self.lag].tail(self.n_obs)
-        sharpe_df_win = self.sharpe_df[date_time_idx <= timestamp]
-        sharpe_df_win = sharpe_df_win[:-self.lag].tail(self.n_obs)
+        # exclude 'lag' samples before and including the current timestamp and then get the last n_obs observations
+        ret_df_win = self.return_df[date_time_idx <= timestamp - timedelta(self.lag)].tail(self.n_obs)
+        if len(ret_df_win) < self.n_obs:
+            logger.warning('Not enough samples for the given rolling window length.')
+        vol_df_win = self.volat_df[date_time_idx <= timestamp - timedelta(self.lag)].tail(self.n_obs)
+        sharpe_df_win = self.sharpe_df[date_time_idx <= timestamp - timedelta(self.lag)].tail(self.n_obs)
 
         if self.mktcap_df is None:
-            cap_df_win = None
+            mktcap_df_win = None
         else:
-            cap_df_win = self.mktcap_df[date_time_idx <= timestamp]
-            cap_df_win = cap_df_win[:-self.lag].tail(self.n_obs)
+            mktcap_df_win = self.mktcap_df[date_time_idx <= timestamp - timedelta(self.lag)].tail(self.n_obs)
 
         if isinstance(self.risk_free_ret, pd.Series):
-            rf_ret_df_hist = self.risk_free_ret[self.risk_free_ret.index <= timestamp][:-self.lag]
+            rf_ret_df_hist = self.risk_free_ret[date_time_idx <= timestamp - timedelta(self.lag)]
         else:
             rf_ret_df_hist = self.risk_free_ret
 
-        # Create stock picker object
+        # create stock picker object
         stock_picker = StockPicker(n_stk=self.n_stk,
                                    algo=self.algo,
                                    ret_df=ret_df_win,
                                    vol_df=vol_df_win,
                                    sharpe_df=sharpe_df_win,
-                                   mktcap_df=cap_df_win,
+                                   mktcap_df=mktcap_df_win,
                                    nsel=self.nsel)
 
-        # Perform stock selection
+        # perform stock selection
         stock_sel_df = stock_picker.pick_stocks(multi_proc=self.multi_proc, cv_opt_bw=self.cv_opt_bw)
         stock_sel = stock_sel_df.index
 
         # Add column with last price
-        try:
-            stock_sel_df['Price'] = [price_curr_dct[tckr] for tckr in stock_sel]
-        except:
-            pass
+        stock_sel_df['Price'] = [price_curr_dct[tkr] for tkr in stock_sel]
 
-        # Use historical returns and volatilities up to the current rebalancing day 
+        # use historical returns and volatilities up to the current rebalancing day
         # for Markowitz' portfolio optimization
         ret_sel_df_hist = self.return_df.loc[date_time_idx <= timestamp, stock_sel][:-self.lag]
         vol_sel_df_hist = self.volat_df.loc[date_time_idx <= timestamp, stock_sel][:-self.lag]
 
-        # Compute portfolio allocation
+        # compute portfolio allocation
         pf_alloc_dct = {}
         for wm in self.pf_dict:
             pf_alloc_dct[wm] = self.pf_dict[wm].compute_weights(stock_sel_df=stock_sel_df,
@@ -283,37 +283,36 @@ class PortfolioBacktest:
         return pf_alloc_dct
 
     @calculate_time
-    def backtest_single(self, start_date: pd.Timestamp = None, stop_date: pd.Timestamp = None):
-        # Make a copy of last price dataframe that can be manipulated
-        price_df = self.price_df.copy()
+    def backtest_single(self, offset_start: int = 0):
+        # adjust starting index
+        idx_start = self.idx_start + offset_start
 
-        # # Select only data samples between start and stop date, if given
-        # if start_date is not None:
-        #     price_df = price_df.loc[price_df.index.tz_localize(None) >= start_date]
-        # if stop_date is not None:
-        #     price_df = price_df.loc[price_df.index.tz_localize(None) <= stop_date]
-        #
-        # # Check if there are enough samples for the first iteration
-        # if price_df.shape[0] <= self.n_obs:
-        #     raise Exception('Not enough data samples for backtesting.')
+        # build index of backtesting timestamps
+        timestamps = self.price_df.index
 
-        # Get full list of days for backtesting and those when rebalancing occurs
+        # select only data samples up to stop date, if given
+        if self.date_stop is not None:
+            timestamps = timestamps[timestamps.tz_localize(None) <= self.date_stop]
+
+        # check if there are enough samples for the first iteration
+        if len(timestamps) <= self.n_obs:
+            raise Exception('Not enough data samples for backtesting.')
+
+        # get full list of days for backtesting and those when rebalancing occurs
         # self.idx_start is the first trading day, so the portfolios are initialized
         # at self.idx_start - 1 with the initial wealth
-        self.timestamps = price_df.index[self.idx_start - 1:]
-        self.timestamps_reb = price_df.index[self.idx_start::self.n_reb]
+        self.timestamps = timestamps[idx_start - 1:]
+        self.timestamps_reb = timestamps[idx_start::self.n_reb]
 
         print(f" --- Algo: {self.algo}, #obs: {self.n_obs}, #reb: {self.n_reb}, #stk: {self.n_stk}. "
               f"Total time steps: {self.timestamps.size - 1}. --- ")
 
-        # Build dictionary with last price for computing portfolio value
-        # To this purpose, fill NaNs with last valid data, in order to
-        # get an approximated value of the wealth even if not all asset prices
-        # are available
-        price_df_fill = price_df.fillna(method='ffill')
+        # build dictionary with last price for computing portfolio value. To this purpose, fill NaNs with last valid
+        # data, in order to get an approximated value of the wealth even if not all asset prices are available
+        price_df_fill = self.price_df.fillna(method='ffill')
 
-        # (Re-)initialize portfolio(s)
-        self.init_portfolios(price_df.index[self.idx_start - 1])
+        # (re-)initialize portfolio(s)
+        self.init_portfolios(timestamps[idx_start - 1])
 
         for n, timestamp in enumerate(self.timestamps[1:]):
             price_curr_dct_fill = price_df_fill.loc[timestamp].to_dict()
@@ -322,15 +321,14 @@ class PortfolioBacktest:
                 self.pf_dict[wm].update_value(price_curr_dct_fill)
 
             if timestamp in self.timestamps_reb:
-                # For the transaction, we use the last available prices without
-                # filling NaNs, thus excluding selected stocks for which we
-                # don't have a valid price
-                price_curr_dct = price_df.loc[timestamp].to_dict()
+                # for the transaction, we use the last available prices without filling NaNs, thus excluding
+                # selected stocks for which we don't have a valid price
+                price_curr_dct = self.price_df.loc[timestamp].to_dict()
 
-                # Compute new portfolio allocation(s)
+                # compute new portfolio allocation(s)
                 pf_alloc_dct = self.allocate(timestamp, price_curr_dct)
 
-                # Execute trading
+                # execute trading
                 for wm in self.pf_dict:
                     self.pf_dict[wm].rebalance(pf_alloc_dct[wm], price_curr_dct,
                                                self.trsctn_fee_fix, self.trsctn_fee_prop)
@@ -345,12 +343,12 @@ class PortfolioBacktest:
 
         # add market portfolio
         if self.bema_idx_df is not None:
-            self.bema_idx_df = self.bema_idx_df.reindex(index=self.timestamps)
+            bema_idx_df = self.bema_idx_df.reindex(index=self.timestamps)
             self.pf_dict['mkt'] = Portfolio(self.endow)
-            self.pf_dict['mkt'].val_tot_hist = self.bema_idx_df / self.bema_idx_df.iloc[0] * self.endow
+            self.pf_dict['mkt'].val_tot_hist = bema_idx_df / bema_idx_df.iloc[0] * self.endow
             self.pf_dict['mkt'].val_trans_hist = pd.Series(data=0, index=self.timestamps)
 
-    def backtest(self, date_start: pd.Timestamp = None, date_stop: pd.Timestamp = None):
+    def backtest(self):
         if self.overwrite_results:
             if os.path.isfile(self.results_pickle_filename):
                 os.remove(self.results_pickle_filename)
@@ -362,7 +360,7 @@ class PortfolioBacktest:
                 if self.parametric_sweep:
                     self.clear_result_text_files()
 
-                # Main loop
+                # main loop
                 start = time.perf_counter()
                 n_sim = len(self.n_obs_ar) * len(self.n_reb_ar)
                 n_done = 0
@@ -371,14 +369,14 @@ class PortfolioBacktest:
                         self.n_obs = n_obs
                         self.n_reb = n_reb
 
-                        print(f'\n --- Running sim. {n_done + 1} of {n_sim} ---')
+                        print(f'\n --- Running backtesting {n_done + 1} of {n_sim} ---')
 
-                        self.backtest_single(start_date=date_start, stop_date=date_stop)
+                        self.backtest_single()
 
                         end_curr = time.perf_counter()
                         elapsed = end_curr - start  # Total time elapsed
 
-                        # Analyze portfolio performance
+                        # analyze portfolio performance
                         self.analyze()
 
                         n_done += 1
@@ -387,7 +385,7 @@ class PortfolioBacktest:
                         elapsed_str = time.strftime('%Hh %Mm %Ss', time.gmtime(elapsed))
                         elapsed_mean_str = time.strftime('%Mm %Ss', time.gmtime(elapsed_mean))
                         print(f'\n --- Total time elapsed: {elapsed_str} '
-                              f'(average sim. time: {elapsed_mean_str}) --- \n')
+                              f'(average simulation time: {elapsed_mean_str}) --- \n')
 
                         self.save_results()
 
@@ -397,6 +395,77 @@ class PortfolioBacktest:
                 # save results to pickle file
                 if self.parametric_sweep:
                     self.save_pickle_results()
+
+    def backtest_sweep_start(self):
+        if self.overwrite_results:
+            if os.path.isfile(self.results_pickle_filename):
+                os.remove(self.results_pickle_filename)
+        n_stk = self.n_stk_ar[0]
+        self.set_n_stk(n_stk=n_stk)
+        for n_obs in self.n_obs_ar:
+            for n_reb in self.n_reb_ar:
+                self.n_obs = n_obs
+                self.n_reb = n_reb
+
+                for algo in self.algos:
+                    self.set_algo(algo=algo)
+
+                    # main loop
+                    start = time.perf_counter()
+                    n_sim = 30
+                    n_done = 0
+                    weekly_returns_df = pd.DataFrame()
+                    offset_start = 0
+                    for _ in range(n_sim):
+                        print(f'\n --- Running backtesting {n_done + 1} of {n_sim} ---')
+
+                        self.backtest_single(offset_start=offset_start)
+
+                        end_curr = time.perf_counter()
+                        elapsed = end_curr - start  # Total time elapsed
+
+                        # analyze portfolio performance
+                        # self.analyze()
+
+                        n_done += 1
+                        elapsed_mean = elapsed / n_done
+
+                        elapsed_str = time.strftime('%Hh %Mm %Ss', time.gmtime(elapsed))
+                        elapsed_mean_str = time.strftime('%Mm %Ss', time.gmtime(elapsed_mean))
+                        print(f'\n --- Total time elapsed: {elapsed_str} '
+                              f'(average simulation time: {elapsed_mean_str}) --- \n')
+
+                        rets_df = pd.DataFrame()
+                        for wm, portfolio in self.pf_dict.items():
+                            rets_df[wm] = portfolio.val_tot_hist.resample('W').last().pct_change().dropna()
+                        weekly_returns_df = pd.concat([weekly_returns_df, rets_df], axis=0)
+
+                        offset_start += 2
+
+                    for wm in self.pf_dict.keys():
+                        if wm == 'mkt':
+                            continue
+                        y = np.array(weekly_returns_df[wm].values, dtype=float).reshape(-1, 1)
+                        x = np.array(weekly_returns_df['mkt'].values, dtype=float).reshape(-1, 1)
+                        ols = sm.OLS(y, sm.add_constant(x, prepend=True))
+                        ols_result = ols.fit()
+                        alpha = ols_result.params[0]
+                        beta = ols_result.params[1]
+                        pvalue = ols_result.pvalues[0]
+
+                        results_str = (f'{self.n_stk}\t{self.n_obs}\t{self.n_reb}\t{algo:<7}\t{wm:<7}\t'
+                                       f'alpha: {52. * alpha:.2%}, pval: {pvalue:.3f}, beta: {beta:.2f}')
+                        print(results_str)
+
+                        filename = f'{self.get_results_base_filename()}_{self.n_stk}_{self.algo}_{wm}_ic.txt'
+                        with open(filename, 'a') as text_file:
+                            text_file.write(f'{results_str}\n')
+
+                    # fig, ax = plt.subplots(figsize=(9, 9))
+                    # ax.scatter(x, y, s=60, alpha=0.7, edgecolors="k")
+                    # xseq = np.linspace(min(x), max(x), num=100)
+                    # ax.plot(xseq, alpha + beta * xseq, color="k", lw=2.5)
+                    # plt.show()
 
     def analyze(self):
         for wm in self.pf_dict:
@@ -430,6 +499,8 @@ class PortfolioBacktest:
             for metric in EnumPerfMetrics:
                 if metric in portfolio.perf_metrics.keys():
                     pf_metric = portfolio.perf_metrics[metric]
+                    if np.isnan(pf_metric.value):
+                        continue
                     if isinstance(pf_metric.value, float):
                         results_str = results_str + f'\t{pf_metric.value:{pf_metric.format}}'
 
@@ -479,7 +550,7 @@ class PortfolioBacktest:
         if hasattr(self, 'results_pickle_filename'):
             if os.path.isfile(self.results_pickle_filename):
                 results = pd.read_pickle(self.results_pickle_filename)
-            else:   # load last available results
+            else:  # load last available results
                 data_file_collection = glob.glob(f'{self.results_dir}*.pkl')
                 data_file_collection.sort(reverse=True)
                 last_results_filename = data_file_collection[0]
@@ -490,7 +561,7 @@ class PortfolioBacktest:
                 full_results_path = glob.glob(f'{self.results_dir}{results_filename}')
                 logger.info(f'Loading results from {full_results_path}.')
                 results = pd.read_pickle(full_results_path)
-            else:   # load last available results
+            else:  # load last available results
                 data_file_collection = glob.glob(f'{self.results_dir}*.pkl')
                 data_file_collection.sort(reverse=True)
                 last_results_filename = data_file_collection[0]

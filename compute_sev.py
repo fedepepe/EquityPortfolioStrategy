@@ -1,15 +1,11 @@
 import sys
 import warnings
-from sys import platform
-
-from pandarallel import pandarallel
 
 import numpy as np
 import pandas as pd
+from pandarallel import pandarallel
 from scipy import stats
 from sklearn.model_selection import LeaveOneOut
-import itertools
-from typing import Dict
 
 from definitions import CorrelationMethods
 
@@ -131,8 +127,10 @@ def compute_sev(x: np.array, y: np.array,
         raise Exception('Correlation method not implemented.')
 
 
-def compute_sev_inner_fun(x_df: pd.DataFrame, y_df: pd.DataFrame,
-                          method: CorrelationMethods = CorrelationMethods.SEV, cv_opt_bw: bool = False):
+def compute_sev_inner_fun(x_df: pd.DataFrame,
+                          y_df: pd.DataFrame,
+                          method: CorrelationMethods = CorrelationMethods.SEV,
+                          cv_opt_bw: bool = False):
     # Suppress warning message caused by NaNs in the dataframes for kernel regression
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message="Degrees of freedom <= 0 for slice")
@@ -140,9 +138,9 @@ def compute_sev_inner_fun(x_df: pd.DataFrame, y_df: pd.DataFrame,
     return sev
 
 
-def compute_sev_multiproc(tickers, features_df, hsr_idx, method, cv_opt_bw):
+def compute_sev_multiproc(features_df, hsr_idx, method, cv_opt_bw):
     pandarallel.initialize()
-    sev_df = features_df.parallel_apply(compute_sev_inner_fun, args=(hsr_idx,)).to_frame()
+    sev_df = features_df.parallel_apply(compute_sev_inner_fun, args=(hsr_idx, method, cv_opt_bw)).to_frame()
     return sev_df
 
 

@@ -5,7 +5,7 @@ Created on Thu Mar 11 12:12:38 2021
 
 @author: federico
 """
-from multiprocessing import managers as mpm
+# from multiprocessing import managers as mpm
 
 import pandas as pd
 import numpy as np
@@ -83,7 +83,10 @@ class StockPicker:
 
             mkt_cap_curr = pd.Series(index=sr_df_curr.index, dtype=float)
             tickers_with_market_cap = [t for t in self.cap_df.columns if t in sr_df_curr.index]
-            mkt_cap_curr.loc[tickers_with_market_cap] = self.cap_df.loc[d, tickers_with_market_cap]
+            try:
+                mkt_cap_curr.loc[tickers_with_market_cap] = self.cap_df.loc[d, tickers_with_market_cap]
+            except:
+                breakpoint()
 
             if any(np.isnan(mkt_cap_curr)):
                 # missing_lst = list(mkt_cap_curr[np.isnan(mkt_cap_curr)].index)
@@ -106,7 +109,7 @@ class StockPicker:
                 risk_managed: bool = True,
                 long_only: bool = True,
                 multi_proc: bool = True,
-                method: CorrelationMethods = CorrelationMethods.SEV,
+                corr_method: CorrelationMethods = CorrelationMethods.SEV,
                 tracking_mode: bool = False,
                 cv_opt_bw: bool = False) -> pd.DataFrame:
         # Build artificial high Sharpe ratio index
@@ -121,17 +124,19 @@ class StockPicker:
         if not tracking_mode:
             features_df = features_df.subtract(hsr_idx, axis=0)
 
-        tickers = self.ret_df.columns
-
         if multi_proc:
-            sev_df = compute_sev_multiproc(tickers, features_df, hsr_idx, method, cv_opt_bw)
+            sev_df = compute_sev_multiproc(features_df=features_df,
+                                           hsr_idx=hsr_idx,
+                                           method=corr_method,
+                                           cv_opt_bw=cv_opt_bw)
             sev_df.columns = ['Metric']
         else:
+            tickers = self.ret_df.columns
             sev_df = pd.DataFrame(np.nan, index=tickers, columns=['Metric'])
             for tkr in tickers:
                 sev_df.loc[tkr, 'Metric'] = compute_sev(x=features_df[tkr].values,
                                                         y=hsr_idx.values,
-                                                        method=method,
+                                                        method=corr_method,
                                                         cv_opt_bw=cv_opt_bw)
 
         sev_df = sev_df.sort_values('Metric', ascending=False)
@@ -216,25 +221,25 @@ class StockPicker:
             stock_df = self.use_sev(risk_managed=False,
                                     long_only=False,
                                     multi_proc=multi_proc,
-                                    method=CorrelationMethods.LINEAR,
+                                    corr_method=CorrelationMethods.LINEAR,
                                     tracking_mode=False)
         elif self.algo == Algorithms.LOLIN:
             stock_df = self.use_sev(risk_managed=False,
                                     long_only=True,
                                     multi_proc=multi_proc,
-                                    method=CorrelationMethods.LINEAR,
+                                    corr_method=CorrelationMethods.LINEAR,
                                     tracking_mode=False)
         elif self.algo == Algorithms.RMLIN:
             stock_df = self.use_sev(risk_managed=True,
                                     long_only=False,
                                     multi_proc=multi_proc,
-                                    method=CorrelationMethods.LINEAR,
+                                    corr_method=CorrelationMethods.LINEAR,
                                     tracking_mode=False)
         elif self.algo == Algorithms.LORMLIN:
             stock_df = self.use_sev(risk_managed=True,
                                     long_only=True,
                                     multi_proc=multi_proc,
-                                    method=CorrelationMethods.LINEAR,
+                                    corr_method=CorrelationMethods.LINEAR,
                                     tracking_mode=False)
 
         # elif self.algo == Algorithms.IMV:

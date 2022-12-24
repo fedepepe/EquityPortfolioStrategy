@@ -1,6 +1,6 @@
-from typing import NamedTuple
+from typing import NamedTuple, List, Union, Optional
 from enum import Enum, EnumMeta, auto
-
+import numpy as np
 
 class EnumDirectValueMeta(EnumMeta):
     def __getattribute__(cls, name):
@@ -43,20 +43,20 @@ class Algorithms(Enum, metaclass=EnumDirectValueMeta):
 class Strategy(NamedTuple):
     dataset: StockUniverses
     algo: Algorithms
-    wght_mtd: WeightMethods
-    n_stk: int
-    n_obs: int
+    wght_mtds: Union[WeightMethods, List[WeightMethods]]
+    n_stk: Optional[int]
+    n_obs: Optional[Union[int, np.array]] = None
 
 
 class TopStrategies(Enum):
     SP500 = Strategy(dataset=StockUniverses.SP500,
                      algo=Algorithms.SEV,
-                     wght_mtd=WeightMethods.RISKPAR,
+                     wght_mtds=WeightMethods.RISKPAR,
                      n_stk=10,
                      n_obs=90)
     STOXXE600 = Strategy(dataset=StockUniverses.STOXXE600,
                          algo=Algorithms.RMLIN,
-                         wght_mtd=WeightMethods.RISKPAR,
+                         wght_mtds=WeightMethods.RISKPAR,
                          n_stk=10,
                          n_obs=60)
 

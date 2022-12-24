@@ -14,7 +14,8 @@ import zipfile
 import yahoo_data_tools
 from datetime import datetime as dt
 
-TRADING_DAYS_IN_YEAR = 252
+TRADING_DAYS_IN_YEAR = 252.
+WEEKS_IN_YEAR = 52.
 
 
 def geo_mean(iterable):
@@ -28,13 +29,11 @@ def compute_returns(cum_wealth_hist):
     return returns
 
 
-def compute_exc_ret(cum_wealth_hist, risk_free_ret=0):  # Excess returns
+def compute_exc_ret(cum_wealth_hist, returns_benchmark=0):  # Excess returns
     returns = compute_returns(cum_wealth_hist)
-    if isinstance(risk_free_ret, pd.Series):
-        rf_ret = risk_free_ret.loc[returns.index]
-    else:
-        rf_ret = risk_free_ret
-    exc_ret = returns - rf_ret
+    if isinstance(returns_benchmark, pd.Series):
+        returns_benchmark = returns_benchmark.loc[returns.index]
+    exc_ret = returns - returns_benchmark
     return exc_ret
 
 
