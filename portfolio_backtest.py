@@ -103,7 +103,7 @@ class PortfolioBacktest:
         self.risk_free_ret = risk_free_ret
         self.endow = endow
 
-        self.pf_dict = {}
+        self.portfolios = {}
 
         self.date_start = date_start
         self.date_stop = date_stop
@@ -189,11 +189,11 @@ class PortfolioBacktest:
 
     def init_portfolios(self, timestamp):
         # Create portfolio(s)
-        self.pf_dict = {}
+        self.portfolios = {}
         for wm in self.wght_mtds:
-            self.pf_dict[wm] = Portfolio(self.endow)
+            self.portfolios[wm] = Portfolio(self.endow)
             # Record the initial cash in the portfolio history
-            self.pf_dict[wm].update_hist(timestamp)
+            self.portfolios[wm].update_hist(timestamp)
 
     def get_results_base_filename(self):
         base_filename = f'{self.results_dir}{self.results_tag}_{self.results_date}'
@@ -269,17 +269,17 @@ class PortfolioBacktest:
 
         # compute portfolio allocation
         pf_alloc_dct = {}
-        for wm in self.pf_dict:
-            pf_alloc_dct[wm] = self.pf_dict[wm].compute_weights(stock_sel_df=stock_sel_df,
-                                                                wght_mtd=wm,
-                                                                risk_avers=self.risk_avers_factor,
-                                                                max_lvrg=self.max_leverage,
-                                                                mktcap_df=self.mktcap_df.loc[timestamp],
-                                                                ret_df=ret_sel_df_hist,
-                                                                vol_df=vol_sel_df_hist,
-                                                                bema_ret_df=rf_ret_df_hist,
-                                                                trsctn_fee_fix=self.trsctn_fee_fix,
-                                                                trsctn_fee_prop=self.trsctn_fee_prop)
+        for wm in self.portfolios:
+            pf_alloc_dct[wm] = self.portfolios[wm].compute_weights(stock_sel_df=stock_sel_df,
+                                                                   wght_mtd=wm,
+                                                                   risk_avers=self.risk_avers_factor,
+                                                                   max_lvrg=self.max_leverage,
+                                                                   mktcap_df=self.mktcap_df.loc[timestamp],
+                                                                   ret_df=ret_sel_df_hist,
+                                                                   vol_df=vol_sel_df_hist,
+                                                                   bema_ret_df=rf_ret_df_hist,
+                                                                   trsctn_fee_fix=self.trsctn_fee_fix,
+                                                                   trsctn_fee_prop=self.trsctn_fee_prop)
         return pf_alloc_dct
 
     @calculate_time
@@ -317,8 +317,8 @@ class PortfolioBacktest:
         for n, timestamp in enumerate(self.timestamps[1:]):
             price_curr_dct_fill = price_df_fill.loc[timestamp].to_dict()
 
-            for wm in self.pf_dict:
-                self.pf_dict[wm].update_value(price_curr_dct_fill)
+            for wm in self.portfolios:
+                self.portfolios[wm].update_value(price_curr_dct_fill)
 
             if timestamp in self.timestamps_reb:
                 # for the transaction, we use the last available prices without filling NaNs, thus excluding
@@ -329,12 +329,12 @@ class PortfolioBacktest:
                 pf_alloc_dct = self.allocate(timestamp, price_curr_dct)
 
                 # execute trading
-                for wm in self.pf_dict:
-                    self.pf_dict[wm].rebalance(pf_alloc_dct[wm], price_curr_dct,
-                                               self.trsctn_fee_fix, self.trsctn_fee_prop)
+                for wm in self.portfolios:
+                    self.portfolios[wm].rebalance(pf_alloc_dct[wm], price_curr_dct,
+                                                  self.trsctn_fee_fix, self.trsctn_fee_prop)
 
-            for wm in self.pf_dict:
-                self.pf_dict[wm].update_hist(timestamp, self.save_stk_hist)
+            for wm in self.portfolios:
+                self.portfolios[wm].update_hist(timestamp, self.save_stk_hist)
 
             if n + 1 == 5:
                 print(' --- Done step', end=' ')
@@ -344,9 +344,9 @@ class PortfolioBacktest:
         # add market portfolio
         if self.bema_idx_df is not None:
             bema_idx_df = self.bema_idx_df.reindex(index=self.timestamps)
-            self.pf_dict['mkt'] = Portfolio(self.endow)
-            self.pf_dict['mkt'].val_tot_hist = bema_idx_df / bema_idx_df.iloc[0] * self.endow
-            self.pf_dict['mkt'].val_trans_hist = pd.Series(data=0, index=self.timestamps)
+            self.portfolios['mkt'] = Portfolio(self.endow)
+            self.portfolios['mkt'].val_tot_hist = bema_idx_df / bema_idx_df.iloc[0] * self.endow
+            self.portfolios['mkt'].val_trans_hist = pd.Series(data=0, index=self.timestamps)
 
     def backtest(self):
         if self.overwrite_results:
@@ -412,14 +412,16 @@ class PortfolioBacktest:
 
                     # main loop
                     start = time.perf_counter()
-                    n_sim = 30
+                    offsets = [0, 65, 130, 195, 261]
                     n_done = 0
                     weekly_returns_df = pd.DataFrame()
-                    offset_start = 0
-                    for _ in range(n_sim):
-                        print(f'\n --- Running backtesting {n_done + 1} of {n_sim} ---')
+                    for n, offset in enumerate(offsets):
+                        print(f'\n --- Running backtesting {n + 1} of {len(offsets)} ---')
 
-                        self.backtest_single(offset_start=offset_start)
+                        # offset adjustment to increase backtesting over the same samples
+                        offset += np.argmax(np.lcm(self.n_reb, [offset - 1, offset, offset + 1])) - 1
+                        offset = max(offset, 0)
+                        self.backtest_single(offset_start=offset)
 
                         end_curr = time.perf_counter()
                         elapsed = end_curr - start  # Total time elapsed
@@ -436,13 +438,11 @@ class PortfolioBacktest:
                               f'(average simulation time: {elapsed_mean_str}) --- \n')
 
                         rets_df = pd.DataFrame()
-                        for wm, portfolio in self.pf_dict.items():
+                        for wm, portfolio in self.portfolios.items():
                             rets_df[wm] = portfolio.val_tot_hist.resample('W').last().pct_change().dropna()
                         weekly_returns_df = pd.concat([weekly_returns_df, rets_df], axis=0)
 
-                        offset_start += 2
-
-                    for wm in self.pf_dict.keys():
+                    for wm in self.portfolios.keys():
                         if wm == 'mkt':
                             continue
                         y = np.array(weekly_returns_df[wm].values, dtype=float).reshape(-1, 1)
@@ -468,18 +468,18 @@ class PortfolioBacktest:
                     # plt.show()
 
     def analyze(self):
-        for wm in self.pf_dict:
-            self.pf_dict[wm].analyze(mkt_ret_df=self.bema_idx_df.pct_change(),
-                                     risk_free_ret=self.risk_free_ret)
+        for wm in self.portfolios:
+            self.portfolios[wm].analyze(mkt_ret_df=self.bema_idx_df.pct_change(),
+                                        risk_free_ret=self.risk_free_ret)
 
     def compute_ff_factors(self, n_factors: int):
-        for wm in self.pf_dict:
-            self.pf_dict[wm].compute_ff_factors(n_factors)
+        for wm in self.portfolios:
+            self.portfolios[wm].compute_ff_factors(n_factors)
 
     def print_results(self, to_file: bool = False):
         if not to_file:
-            pf_name = list(self.pf_dict.keys())[0]
-            pf_metrics = self.pf_dict[pf_name].perf_metrics
+            pf_name = list(self.portfolios.keys())[0]
+            pf_metrics = self.portfolios[pf_name].perf_metrics
             header_str = f'stk\tobs\treb\talgo\tweight  '
             for metric in EnumPerfMetrics:
                 if metric in pf_metrics.keys():
@@ -487,7 +487,7 @@ class PortfolioBacktest:
                         header_str = f'{header_str}\t{pf_metrics[metric].label}'
             print(header_str)
 
-        for wm, portfolio in self.pf_dict.items():
+        for wm, portfolio in self.portfolios.items():
             if not portfolio.perf_metrics:
                 raise Exception('Error! Run portfolio analysis first!')
 
@@ -516,7 +516,7 @@ class PortfolioBacktest:
                 print(results_str)
 
     def print_results_for_latex(self):
-        for wm, portfolio in self.pf_dict.items():
+        for wm, portfolio in self.portfolios.items():
             if not portfolio.perf_metrics:
                 raise Exception('Error! Run portfolio analysis first!')
 
@@ -535,7 +535,7 @@ class PortfolioBacktest:
 
     def save_results(self):
         # save only scalar metrics, not time series
-        for wm, portfolio in self.pf_dict.items():
+        for wm, portfolio in self.portfolios.items():
             perf_metrics_to_save = {}
             keys_to_save = [k for k, v in portfolio.perf_metrics.items() if isinstance(v.value, float)]
             for k in keys_to_save:
@@ -584,14 +584,14 @@ class PortfolioBacktest:
 
     def plot_cum_wealth(self) -> plt.Figure:
         fig_wealth = None
-        for wm, portfolio in self.pf_dict.items():
+        for wm, portfolio in self.portfolios.items():
             if wm == 'mkt' or wm == 'market':
                 linestyle = '--'
                 algo = 'market'
             else:
                 linestyle = '-'
                 algo = f'algo={self.algo} wght={wm}'
-            fig_wealth = pf_plot.plot_cum_wealth(self.pf_dict[wm].val_tot_hist,
+            fig_wealth = pf_plot.plot_cum_wealth(self.portfolios[wm].val_tot_hist,
                                                  figure=fig_wealth,
                                                  descr=algo,
                                                  linestyle=linestyle)

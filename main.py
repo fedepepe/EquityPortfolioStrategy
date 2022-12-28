@@ -19,6 +19,8 @@ from portfolio import EnumPerfMetrics
 from portfolio_backtest import PortfolioBacktest
 from yahoo_data_downloader import YahooDataDownloader
 
+WGHT_METHODS_ALL = [w.value for w in WeightMethods]
+
 
 # %% Load data
 def main_download(dataset_list: List[StockUniverses] = (StockUniverses.SP500, StockUniverses.STOXXE600)):
@@ -57,9 +59,6 @@ def create_backtest_obj(dataset: StockUniverses,
     mkt_ret_df, mkt_idx_df = [d for d in mkt_data]
 
     # Load backtesting parameters
-    import os
-    os.system(f"cat ./parameters.pkl > /dev/null")
-
     with open('parameters.pkl', 'rb') as f:
         parameters = pickle.load(f)
 
@@ -74,7 +73,7 @@ def create_backtest_obj(dataset: StockUniverses,
                                     lag=data_lag,
                                     trsctn_fee_fix=trsctn_fee_fix, trsctn_fee_prop=trsctn_fee_prop,
                                     risk_avers_factor=None,
-                                    multi_proc=True, cv_opt_bw=False, save_stk_hist=False,
+                                    multi_proc=False, cv_opt_bw=False, save_stk_hist=True,
                                     output_figs_format='png')
     return pf_backtest
 
@@ -115,13 +114,18 @@ class UnitTests(Enum):
 def run_unit_test(unit_test: UnitTests):
     strategies = [
         # Strategy(dataset=StockUniverses.SP500, algo=Algorithms.SEV,
-        #          wght_mtds=[WeightMethods.EQ, WeightMethods.MKTCAP], n_stk=10, n_obs=np.arange(20, 105, 10)),
+        #          wght_mtds=WGHT_METHODS_ALL, n_stk=10, n_obs=np.arange(20, 95, 10)),
         # Strategy(dataset=StockUniverses.SP500, algo=Algorithms.RMSEV,
-        #          wght_mtds=[WeightMethods.EQ, WeightMethods.MKTCAP], n_stk=10, n_obs=np.arange(20, 105, 10)),
+        #          wght_mtds=WGHT_METHODS_ALL,
+        #          n_stk=10, n_obs=np.arange(20, 95, 10)),
         Strategy(dataset=StockUniverses.STOXXE600, algo=Algorithms.LOLIN,
-                 wght_mtds=[WeightMethods.EQ, WeightMethods.MKTCAP], n_stk=10, n_obs=np.arange(20, 105, 10)),
+                 wght_mtds=WGHT_METHODS_ALL, n_stk=10, n_obs=np.arange(20, 95, 10)),
         Strategy(dataset=StockUniverses.STOXXE600, algo=Algorithms.LORMLIN,
-                 wght_mtds=[WeightMethods.EQ, WeightMethods.MKTCAP], n_stk=10, n_obs=np.arange(20, 105, 10)),
+                 wght_mtds=WGHT_METHODS_ALL, n_stk=10, n_obs=np.arange(20, 95, 10)),
+        Strategy(dataset=StockUniverses.STOXXE600, algo=Algorithms.SEV,
+                 wght_mtds=WGHT_METHODS_ALL, n_stk=10, n_obs=np.arange(20, 95, 10)),
+        Strategy(dataset=StockUniverses.STOXXE600, algo=Algorithms.RMSEV,
+                 wght_mtds=WGHT_METHODS_ALL, n_stk=10, n_obs=np.arange(20, 95, 10)),
     ]
 
     if unit_test == UnitTests.RUN_DOWNLOAD_ALL:
@@ -132,9 +136,9 @@ def run_unit_test(unit_test: UnitTests):
 
     elif unit_test == UnitTests.RUN_SINGLE:
         # strategy = TopStrategies.SP500.value
-        strategy = definitions.Strategy(dataset=StockUniverses.SP500,
+        strategy = definitions.Strategy(dataset=StockUniverses.STOXXE600,
                                         algo=Algorithms.RMSEV,
-                                        wght_mtds=WeightMethods.LOTP,
+                                        wght_mtds=WeightMethods.ILOTP,
                                         n_stk=10,
                                         n_obs=90)
         dataset = strategy.dataset
@@ -143,7 +147,7 @@ def run_unit_test(unit_test: UnitTests):
         n_stk = strategy.n_stk
         n_obs = strategy.n_obs
         n_reb = 60
-        date_start = pd.to_datetime('2021-06-01')
+        date_start = pd.to_datetime('2021-02-01')
         pf_backtest = create_backtest_obj(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
                                           algos=algo, wght_mtds=wght_mtd, date_start=date_start)
         pf_backtest.backtest_sweep_start()
@@ -186,5 +190,5 @@ def run_unit_test(unit_test: UnitTests):
 
 
 if __name__ == '__main__':
-    unit_test = UnitTests.RUN_DOWNLOAD_ALL
+    unit_test = UnitTests.RUN_SINGLE
     run_unit_test(unit_test=unit_test)

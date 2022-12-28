@@ -6,16 +6,17 @@ Created on Sat Jul 31 14:51:00 2021
 @author: federico
 """
 
+import glob
+import os
+import statistics
+import warnings
+from typing import Union
+
 import numpy as np
 import pandas as pd
-import symbols_string
 import yfinance as yf
-import os
-import glob
-import statistics
-from typing import Union
-# import tabula
 
+import symbols_string
 from definitions import StockUniverses
 
 YMD_DATE_FORMAT = '%Y-%m-%d'
@@ -151,13 +152,15 @@ def reindex_by_date(df_old: Union[pd.Series, pd.DataFrame],
         if bfill:
             df_new = df_new.fillna(method='bfill')
 
+    else:
+        raise Warning('Input is not a dataframe nor a series.')
+
     return df_new
 
 
 @print_status_msg('Building price dataset')
 def merge_stock_prices(close_adj_filename, price_filename_tag):
     if os.path.isfile(close_adj_filename):
-        os.system(f"ll {os.path.dirname(close_adj_filename)}")
         close_ds = pd.read_pickle(close_adj_filename)
     else:
         close_ds = {}
@@ -239,8 +242,6 @@ def adjust_stk_prices(close_ds, close_daily_df):
 @print_status_msg('Building stock data dataset')
 def merge_stk_data(stk_data_filename, stk_data_filename_tag):
     if os.path.isfile(stk_data_filename):
-        os.system(f"cd {os.path.dirname(stk_data_filename)}")
-        os.system("ls -lh")
         stk_data_ds = pd.read_pickle(stk_data_filename)
     else:
         stk_data_ds = {}
@@ -257,8 +258,6 @@ def merge_stk_data(stk_data_filename, stk_data_filename_tag):
 
 def merge_mktcap_data(mktcap_filename, mktcap_filename_tag):
     if os.path.isfile(mktcap_filename):
-        os.system(f"cd {os.path.dirname(mktcap_filename)}")
-        os.system("ls -lh")
         mktcap_df = pd.read_pickle(mktcap_filename)
     else:
         mktcap_df = pd.DataFrame()
@@ -355,29 +354,33 @@ def get_returns_volat(close_ds, price_df, verbose=False):
 
 def correct_data_anomalies(df: pd.DataFrame) -> pd.DataFrame:
     # Check for errors in position of decimal point of last prices
-    col_list = df.columns
-    for col in col_list:
+    for col in df.columns.tolist():
         change_df = df[col].pct_change(fill_method=None)
-        pos_jumps = (change_df > 8)
-        neg_jumps = (change_df < -0.8)
-        large_changes_idx = change_df[pos_jumps | neg_jumps].index
+        pos_jumps = (change_df > (8. - 1))
+        neg_jumps = (change_df < (1. / 8 - 1))
+        jump_indices = change_df[pos_jumps | neg_jumps].index
 
-        if len(large_changes_idx) > 0:
-            for _ in np.arange(2):
-                # Get price level as rolling median over last 3 months
-                data_level = df[col].rolling(60, min_periods=1).median()
-                for idx in large_changes_idx:
-                    # Detect abnormally high or low prices
-                    enorm_hi_price = (df.loc[idx, col] > 8 * data_level[idx])
-                    enorm_lo_price = (df.loc[idx, col] < 1 / 8 * data_level[idx])
-                    if enorm_hi_price or enorm_lo_price:
-                        price_ratio = df.loc[idx, col] / data_level[idx]
-                        corr_factor = pow(10, -round(np.log10(abs(price_ratio))))
-                        df.loc[idx, col] = corr_factor * df.loc[idx, col]
+        while len(jump_indices) > 0:
+            # Get price level as rolling median over last 3 months
+            data_level = df[col].median()
+            for idx in jump_indices:
+                # Detect abnormally high or low prices
+                enorm_hi_price = (df.loc[idx, col] > 8. * data_level)
+                enorm_lo_price = (df.loc[idx, col] < 1. / 8 * data_level)
+                if enorm_hi_price or enorm_lo_price:
+                    price_ratio = df.loc[idx, col] / data_level
+                    # corr_factor = pow(10, -round(np.log10(abs(price_ratio))))
+                    if enorm_hi_price:
+                        corr_factor = np.round(price_ratio)
+                        warnings.warn(f'Correcting price of {col} by a factor {corr_factor}...')
+                    else:
+                        corr_factor = 1. / np.round(1. / price_ratio)
+                        warnings.warn(f'Correcting price of {col} by a factor {1. / corr_factor}...')
+                    df.loc[idx, col] = 1. / corr_factor * df.loc[idx, col]
 
-                change_df = df[col].pct_change(fill_method=None)
-                pos_jumps = (change_df > 8)
-                neg_jumps = (change_df < -0.8)
-                large_changes_idx = change_df[pos_jumps | neg_jumps].index
+            change_df = df[col].pct_change(fill_method=None)
+            pos_jumps = (change_df > 8.)
+            neg_jumps = (change_df < -0.8)
+            jump_indices = change_df[pos_jumps | neg_jumps].index
 
     return df

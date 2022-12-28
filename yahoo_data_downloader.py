@@ -148,11 +148,10 @@ class YahooDataDownloader:
     # %% LOADING DATA SECTION
     def get_stock_data(self):
         # Load price dataset and compute daily returns and volatility
-        os.listdir(self.data_path)
         close_adj_ds = pd.read_pickle(self.close_intraday_filename)
-        os.listdir(self.data_path)
         close_df = pd.read_pickle(self.prices_daily_filename)['Close']
-        
+        close_df = ytls.correct_data_anomalies(close_df)
+
         timestamp_string = dt.date.today().strftime(self.ymd_fmt_str)
         retvol_daily_filename = f'{self.retvol_daily_filename_tag}{timestamp_string}.pkl'
 

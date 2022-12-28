@@ -112,7 +112,7 @@ for n_stk in range(1, 7):
     
     pf_backtest.print_results_for_latex()
     
-    pf_dict = pf_backtest.pf_dict
+    pf_dict = pf_backtest.portfolios
     
     # %% Fama-French factors
     for n in range(len(n_factors)):
