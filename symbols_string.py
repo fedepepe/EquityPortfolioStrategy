@@ -8,6 +8,16 @@ Created on Thu Jun 24 18:50:36 2021
 
 
 def get_symbols_string_STOXXE600():
+    URL = 'https://www.stoxx.com/document/Reports/SelectionList/2022/January/sl_sx5e_202201.pdf'
+    COMPONENT_FILE_NAME = "./STOXXE600/component_list.txt"
+
+    with open(COMPONENT_FILE_NAME) as file:
+        lines = [line.rstrip() for line in file]
+    tickers = [line.split()[1] for line in lines]
+    return tickers
+
+
+def get_symbols_string_STOXXE600_old():
     symbols = """NESN.SW ROG.SW NOVN.SW ASML.AS MC.PA AZN.L LIN.DE SAP.DE SAN.PA NOVO-B.CO
            SIE.DE FP.PA HSBA.L GSK.L ALV.DE DGE.L OR.PA UNA.AS BATS.L AI.PA
            SU.PA IBE.MC ENEL.MI RIO.L RB.L BP.L RDSA.L BAS.DE ADS.DE STLA.PA

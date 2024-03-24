@@ -499,8 +499,6 @@ class PortfolioBacktest:
             for metric in EnumPerfMetrics:
                 if metric in portfolio.perf_metrics.keys():
                     pf_metric = portfolio.perf_metrics[metric]
-                    if np.isnan(pf_metric.value):
-                        continue
                     if isinstance(pf_metric.value, float):
                         results_str = results_str + f'\t{pf_metric.value:{pf_metric.format}}'
 

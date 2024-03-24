@@ -136,7 +136,7 @@ class YahooDataDownloader:
     def download_latest_data(self, last_dl_date=None):    
         prices_df = self.download_stk_prices(last_dl_date)
         tickers = list(prices_df.Close.columns)
-        self.download_stk_data(tickers)        
+        self.download_stk_data(tickers)
         # self.download_mktcap_data()
         self.merge_adjust_stk_prices()
 

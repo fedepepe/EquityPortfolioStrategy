@@ -117,15 +117,15 @@ def run_unit_test(unit_test: UnitTests):
         #          wght_mtds=WGHT_METHODS_ALL, n_stk=10, n_obs=np.arange(20, 95, 10)),
         # Strategy(dataset=StockUniverses.SP500, algo=Algorithms.RMSEV,
         #          wght_mtds=WGHT_METHODS_ALL,
-        #          n_stk=10, n_obs=np.arange(20, 95, 10)),
-        Strategy(dataset=StockUniverses.STOXXE600, algo=Algorithms.LOLIN,
+        #          n_stk=20, n_obs=np.arange(20, 95, 10)),
+        Strategy(dataset=StockUniverses.SP500, algo=Algorithms.LOLIN,
                  wght_mtds=WGHT_METHODS_ALL, n_stk=10, n_obs=np.arange(20, 95, 10)),
-        Strategy(dataset=StockUniverses.STOXXE600, algo=Algorithms.LORMLIN,
-                 wght_mtds=WGHT_METHODS_ALL, n_stk=10, n_obs=np.arange(20, 95, 10)),
-        Strategy(dataset=StockUniverses.STOXXE600, algo=Algorithms.SEV,
-                 wght_mtds=WGHT_METHODS_ALL, n_stk=10, n_obs=np.arange(20, 95, 10)),
-        Strategy(dataset=StockUniverses.STOXXE600, algo=Algorithms.RMSEV,
-                 wght_mtds=WGHT_METHODS_ALL, n_stk=10, n_obs=np.arange(20, 95, 10)),
+        # Strategy(dataset=StockUniverses.STOXXE600, algo=Algorithms.LORMLIN,
+        #          wght_mtds=WGHT_METHODS_ALL, n_stk=10, n_obs=np.arange(20, 95, 10)),
+        # Strategy(dataset=StockUniverses.STOXXE600, algo=Algorithms.SEV,
+        #          wght_mtds=WGHT_METHODS_ALL, n_stk=10, n_obs=np.arange(20, 95, 10)),
+        # Strategy(dataset=StockUniverses.STOXXE600, algo=Algorithms.RMSEV,
+        #          wght_mtds=WGHT_METHODS_ALL, n_stk=10, n_obs=np.arange(20, 95, 10)),
     ]
 
     if unit_test == UnitTests.RUN_DOWNLOAD_ALL:
@@ -136,21 +136,21 @@ def run_unit_test(unit_test: UnitTests):
 
     elif unit_test == UnitTests.RUN_SINGLE:
         # strategy = TopStrategies.SP500.value
-        strategy = definitions.Strategy(dataset=StockUniverses.STOXXE600,
-                                        algo=Algorithms.RMSEV,
-                                        wght_mtds=WeightMethods.ILOTP,
+        strategy = definitions.Strategy(dataset=StockUniverses.SP500,
+                                        algo=Algorithms.SEV,
+                                        wght_mtds=WeightMethods.RISKPAR,
                                         n_stk=10,
-                                        n_obs=90)
+                                        n_obs=60)
         dataset = strategy.dataset
         algo = strategy.algo
         wght_mtd = strategy.wght_mtds
         n_stk = strategy.n_stk
         n_obs = strategy.n_obs
-        n_reb = 60
-        date_start = pd.to_datetime('2021-02-01')
+        n_reb = 20
+        date_start = None  # pd.to_datetime('2021-01-01')
         pf_backtest = create_backtest_obj(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
                                           algos=algo, wght_mtds=wght_mtd, date_start=date_start)
-        pf_backtest.backtest_sweep_start()
+        pf_backtest.backtest()
         plot_results(pf_backtest=pf_backtest)
 
     elif unit_test == UnitTests.RUN_SWEEP:

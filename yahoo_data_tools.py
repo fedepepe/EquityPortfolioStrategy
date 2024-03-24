@@ -10,7 +10,7 @@ import glob
 import os
 import statistics
 import warnings
-from typing import Union
+from typing import Union, List
 
 import numpy as np
 import pandas as pd
@@ -33,7 +33,7 @@ def print_status_msg(msg):
     return decorator
 
 
-def get_date_list(close_df: pd.DataFrame) -> list:
+def get_date_list(close_df: pd.DataFrame) -> List:
     date_str_list = close_df.index
     date_str_list = [d.strftime(YMD_DATE_FORMAT) for d in date_str_list]
     date_str_list = list(set(date_str_list))
@@ -46,11 +46,10 @@ def ts_time_rounder(ts):
     return ts.replace(second=0, microsecond=0, minute=0, hour=0)
 
 
-def get_tickers(dataset: StockUniverses) -> list:
+def get_tickers(dataset: StockUniverses) -> List:
     if dataset == 'STOXXE600':
         # Get string with tickers stored in a file
-        symbols_str = symbols_string.get_symbols_string_STOXXE600().split()
-        return symbols_str
+        return symbols_string.get_symbols_string_STOXXE600()
 
         # stoxxe600_file = 'https://www.stoxx.com/document/Reports/SelectionList/2022/January/sl_sx5e_202201.pdf'
         # stoxxe600_comp = tabula.read_pdf(stoxxe600_file, pages='all', multiple_tables=False)[0]
@@ -215,7 +214,7 @@ def adjust_stk_prices(close_ds, close_daily_df):
             # Check if we have the time series associated to tckr
             if tckr in close_daily_df_intp.columns:
                 try:
-                    close_daily_curr = float(close_daily_df_intp.loc[d_ts, tckr])
+                    close_daily_curr = float(close_daily_df_intp.loc[d_ts, tckr].iloc[0])
 
                     # Check if we have a valid adjusted price
                     if not np.isnan(close_daily_curr):
@@ -338,7 +337,7 @@ def get_returns_volat(close_ds, price_df, verbose=False):
 
     real_vol_df = reindex_by_date(real_vol_df, price_df.index)
     price_df = price_df.dropna(axis=1, how='all')
-    real_vol_df = real_vol_df[price_df.columns]
+    real_vol_df = real_vol_df.reindex_like(price_df)
 
     # Check for errors in the position of decimal point of last prices
     # price_df = correct_data_anomalies(price_df)
@@ -354,7 +353,9 @@ def get_returns_volat(close_ds, price_df, verbose=False):
 
 def correct_data_anomalies(df: pd.DataFrame) -> pd.DataFrame:
     # Check for errors in position of decimal point of last prices
-    for col in df.columns.tolist():
+    for n, col in enumerate(df.columns.tolist()):
+        if col in ['CFEB.BR', 'DPH.L', 'FNOX.ST', 'ORRON.ST', 'SIOFF.OL', 'SOFF.OL']:
+            continue
         change_df = df[col].pct_change(fill_method=None)
         pos_jumps = (change_df > (8. - 1))
         neg_jumps = (change_df < (1. / 8 - 1))
@@ -362,20 +363,20 @@ def correct_data_anomalies(df: pd.DataFrame) -> pd.DataFrame:
 
         while len(jump_indices) > 0:
             # Get price level as rolling median over last 3 months
-            data_level = df[col].median()
+            data_level = df[col].rolling(20).median()
             for idx in jump_indices:
                 # Detect abnormally high or low prices
-                enorm_hi_price = (df.loc[idx, col] > 8. * data_level)
-                enorm_lo_price = (df.loc[idx, col] < 1. / 8 * data_level)
+                enorm_hi_price = (df.loc[idx, col] > 8. * data_level[idx])
+                enorm_lo_price = (df.loc[idx, col] < 1. / 8 * data_level[idx])
                 if enorm_hi_price or enorm_lo_price:
-                    price_ratio = df.loc[idx, col] / data_level
+                    price_ratio = df.loc[idx, col] / data_level[idx]
                     # corr_factor = pow(10, -round(np.log10(abs(price_ratio))))
                     if enorm_hi_price:
                         corr_factor = np.round(price_ratio)
-                        warnings.warn(f'Correcting price of {col} by a factor {corr_factor}...')
+                        warnings.warn(f'Correcting price of {col} at {idx} by a factor {corr_factor}...')
                     else:
                         corr_factor = 1. / np.round(1. / price_ratio)
-                        warnings.warn(f'Correcting price of {col} by a factor {1. / corr_factor}...')
+                        warnings.warn(f'Correcting price of {col} at {idx} by a factor {1. / corr_factor}...')
                     df.loc[idx, col] = 1. / corr_factor * df.loc[idx, col]
 
             change_df = df[col].pct_change(fill_method=None)
