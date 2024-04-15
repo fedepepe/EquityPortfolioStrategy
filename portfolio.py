@@ -6,14 +6,16 @@ Created on Sat Jul  3 00:03:44 2021
 @author: federico
 """
 import logging
-
-import pandas as pd
-import numpy as np
-import portfolio_optimization as mv_opt
-import portfolio_analysis_tools as pf_analysis
-from portfolio_metrics import EnumPerfMetrics, PerfMetric
+import math
 import warnings
 from typing import Union
+
+import numpy as np
+import pandas as pd
+
+import portfolio_analysis_tools as pf_analysis
+import portfolio_optimization as mv_opt
+from portfolio_metrics import EnumPerfMetrics, PerfMetric
 
 
 class Portfolio:
@@ -44,71 +46,71 @@ class Portfolio:
                              EnumPerfMetrics.MAXDD: PerfMetric(label='maxdd', format='.2%', rev_color_scale=True),
                              EnumPerfMetrics.FF_FACTORS: PerfMetric(label='ff_factors')}
 
-    def trade_stock(self, tckr, price, quantity, trsctn_fee_fix, trsctn_fee_prop):
+    def trade_stock(self, tkr, price, quantity, trx_fee_fix, trx_fee_prop):
         # Compute the transaction value
-        trsctn_value = quantity * price
+        trx_value = quantity * price
 
         # Keep trace of the wealth traded
-        self.val_trans_curr = self.val_trans_curr + abs(trsctn_value)
+        self.val_trans_curr = self.val_trans_curr + abs(trx_value)
 
         # Exchange cash with stock
-        self.holdings_curr['cash'] = self.holdings_curr['cash'] - trsctn_value
-        self.val_stk_curr['cash'] = self.val_stk_curr['cash'] - trsctn_value
+        self.holdings_curr['cash'] = self.holdings_curr['cash'] - trx_value
+        self.val_stk_curr['cash'] = self.val_stk_curr['cash'] - trx_value
         # Subtract transaction costs
-        trsctn_cost = trsctn_fee_fix + trsctn_fee_prop * abs(trsctn_value)
-        self.holdings_curr['cash'] = self.holdings_curr['cash'] - trsctn_cost
-        self.val_stk_curr['cash'] = self.val_stk_curr['cash'] - trsctn_cost
+        trx_cost = trx_fee_fix + trx_fee_prop * abs(trx_value)
+        self.holdings_curr['cash'] = self.holdings_curr['cash'] - trx_cost
+        self.val_stk_curr['cash'] = self.val_stk_curr['cash'] - trx_cost
         # Update the number of stocks hold
-        if tckr in self.holdings_curr:
-            self.holdings_curr[tckr] = self.holdings_curr[tckr] + quantity
-            self.val_stk_curr[tckr] = self.val_stk_curr[tckr] + trsctn_value
+        if tkr in self.holdings_curr:
+            self.holdings_curr[tkr] = self.holdings_curr[tkr] + quantity
+            self.val_stk_curr[tkr] = self.val_stk_curr[tkr] + trx_value
         else:
-            self.holdings_curr[tckr] = quantity
-            self.val_stk_curr[tckr] = trsctn_value
+            self.holdings_curr[tkr] = quantity
+            self.val_stk_curr[tkr] = trx_value
 
         # If there are no stocks left, remove the entry from the portfolio dictionary
-        if self.holdings_curr[tckr] == 0:
-            del self.holdings_curr[tckr]
-            del self.val_stk_curr[tckr]
+        if self.holdings_curr[tkr] == 0:
+            del self.holdings_curr[tkr]
+            del self.val_stk_curr[tkr]
 
         # Update the current portfolio value (change is only due to transaction costs)
-        self.val_tot_curr = self.val_tot_curr - trsctn_cost
+        self.val_tot_curr = self.val_tot_curr - trx_cost
 
-    def rebalance(self, stock_df_new, price_dct, trsctn_fee_fix, trsctn_fee_prop):
-        tckrs = stock_df_new.index.tolist()
+    def rebalance(self, stock_df_new, price_dct, trx_fee_fix, trx_fee_prop):
+        tkrs = stock_df_new.index.tolist()
 
         # First, liquidate open positions that are no longer needed
-        tckrs_to_sell = [tckr for tckr in list(self.holdings_curr.keys()) if tckr not in tckrs]
+        tckrs_to_sell = [tkr for tkr in list(self.holdings_curr.keys()) if tkr not in tkrs]
         tckrs_to_sell.remove('cash')
-        for tckr in tckrs_to_sell:
-            quantity = -self.holdings_curr[tckr]
-            if not np.isnan(price_dct[tckr]):
-                self.trade_stock(tckr, price_dct[tckr], quantity, trsctn_fee_fix, trsctn_fee_prop)
+        for tkr in tckrs_to_sell:
+            quantity = -self.holdings_curr[tkr]
+            if not np.isnan(price_dct[tkr]):
+                self.trade_stock(tkr, price_dct[tkr], quantity, trx_fee_fix, trx_fee_prop)
 
         # Second, update quantity of stocks already present in the portfolio
-        tckrs_to_update = [tckr for tckr in list(self.holdings_curr.keys()) if tckr in tckrs]
-        for tckr in tckrs_to_update:
-            quantity = stock_df_new.loc[tckr, 'Quantity'] - self.holdings_curr[tckr]
-            if not np.isnan(price_dct[tckr]):
-                self.trade_stock(tckr, price_dct[tckr], quantity, trsctn_fee_fix, trsctn_fee_prop)
+        tkrs_to_update = [tckr for tckr in list(self.holdings_curr.keys()) if tckr in tkrs]
+        for tkr in tkrs_to_update:
+            quantity = math.floor(stock_df_new.loc[tkr, 'Quantity']) - self.holdings_curr[tkr]
+            if not np.isnan(price_dct[tkr]):
+                self.trade_stock(tkr, price_dct[tkr], quantity, trx_fee_fix, trx_fee_prop)
 
         # Third, buy new stocks
-        tckrs_to_buy = [tckr for tckr in tckrs if tckr not in list(self.holdings_curr.keys())]
-        for tckr in tckrs_to_buy:
-            quantity = stock_df_new.loc[tckr, 'Quantity']
-            self.trade_stock(tckr, price_dct[tckr], quantity, trsctn_fee_fix, trsctn_fee_prop)
+        tkrs_to_buy = [tckr for tckr in tkrs if tckr not in list(self.holdings_curr.keys())]
+        for tkr in tkrs_to_buy:
+            quantity = math.floor(stock_df_new.loc[tkr, 'Quantity'])
+            self.trade_stock(tkr, price_dct[tkr], quantity, trx_fee_fix, trx_fee_prop)
 
     def update_value(self, price_dct):
         total_value = .0
-        for tckr in self.holdings_curr:
-            if tckr in price_dct:
-                if not np.isnan(price_dct[tckr]):
-                    stk_value = self.holdings_curr[tckr] * price_dct[tckr]
-                    self.val_stk_curr[tckr] = stk_value
+        for tkr in self.holdings_curr:
+            if tkr in price_dct:
+                if not np.isnan(price_dct[tkr]):
+                    stk_value = self.holdings_curr[tkr] * price_dct[tkr]
+                    self.val_stk_curr[tkr] = stk_value
                     total_value = total_value + stk_value
                 else:
-                    print(f'Missing price for {tckr}!')
-            elif tckr == 'cash':
+                    print(f'Missing price for {tkr}!')
+            elif tkr == 'cash':
                 total_value = total_value + self.holdings_curr['cash']
 
         self.val_tot_curr = total_value
@@ -153,12 +155,12 @@ class Portfolio:
             vol_df = vol_df[stock_df.index]
 
         # Final list of selected stocks
-        tckrs_sel = stock_df.index
+        tkrs_sel = stock_df.index
 
         # Compute the number of stocks to be traded by first computing the amount of wealth
         # to be allocated and then dividing by the price
         if wght_mtd.lower() == 'equal':  # Equally-weighted portfolio
-            stock_df['Weight'] = [1 / tckrs_sel.size for _ in tckrs_sel]
+            stock_df['Weight'] = [1 / tkrs_sel.size for _ in tkrs_sel]
             stock_df['Weight'] = stock_df['Pos'] * stock_df['Weight']
         elif wght_mtd.lower() == 'metric':  # Metric (momentum or SEV)-weighted portfolio
             stock_df['Weight'] = stock_df['metric'] / stock_df['metric'].abs().sum()

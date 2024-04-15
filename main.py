@@ -70,8 +70,8 @@ def create_backtest_obj(dataset: StockUniverses,
                                     algos=algos, wght_mtds=wght_mtds, price_df=close_df,
                                     return_df=return_df, volat_df=real_vol_df, mktcap_df=mktcap_df,
                                     bema_idx_df=mkt_idx_df, risk_free_ret=None, date_start=date_start,
-                                    lag=data_lag,
-                                    trsctn_fee_fix=trsctn_fee_fix, trsctn_fee_prop=trsctn_fee_prop,
+                                    endow=1e4, lag=data_lag,
+                                    trx_fee_fix=trsctn_fee_fix, trx_fee_prop=trsctn_fee_prop,
                                     risk_avers_factor=None,
                                     multi_proc=False, cv_opt_bw=False, save_stk_hist=True,
                                     output_figs_format='png')
@@ -95,8 +95,8 @@ def run_sweep(strategies: List[Strategy]):
 
 def plot_results(pf_backtest: PortfolioBacktest):
     if pf_backtest.parametric_sweep:
-        pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.SHARPE)
-        pf_backtest.plot_heatmap(metric_id=EnumPerfMetrics.IC)
+        pf_backtest.plot_heatmap(metric=EnumPerfMetrics.SHARPE)
+        pf_backtest.plot_heatmap(metric=EnumPerfMetrics.IC)
     else:
         pf_backtest.plot_cum_wealth()
 
@@ -118,6 +118,8 @@ def run_unit_test(unit_test: UnitTests):
         # Strategy(dataset=StockUniverses.SP500, algo=Algorithms.RMSEV,
         #          wght_mtds=WGHT_METHODS_ALL,
         #          n_stk=20, n_obs=np.arange(20, 95, 10)),
+        Strategy(dataset=StockUniverses.SP500, algo=Algorithms.MAX_SHARPE,
+                 wght_mtds=WGHT_METHODS_ALL, n_stk=10, n_obs=np.arange(20, 95, 10)),
         Strategy(dataset=StockUniverses.SP500, algo=Algorithms.LOLIN,
                  wght_mtds=WGHT_METHODS_ALL, n_stk=10, n_obs=np.arange(20, 95, 10)),
         # Strategy(dataset=StockUniverses.STOXXE600, algo=Algorithms.LORMLIN,
@@ -137,21 +139,29 @@ def run_unit_test(unit_test: UnitTests):
     elif unit_test == UnitTests.RUN_SINGLE:
         # strategy = TopStrategies.SP500.value
         strategy = definitions.Strategy(dataset=StockUniverses.SP500,
-                                        algo=Algorithms.SEV,
+                                        algo=Algorithms.LOLIN,
                                         wght_mtds=WeightMethods.RISKPAR,
-                                        n_stk=10,
+                                        n_stk=2,
                                         n_obs=60)
         dataset = strategy.dataset
         algo = strategy.algo
         wght_mtd = strategy.wght_mtds
         n_stk = strategy.n_stk
         n_obs = strategy.n_obs
-        n_reb = 20
+        n_reb = 10
         date_start = None  # pd.to_datetime('2021-01-01')
         pf_backtest = create_backtest_obj(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
                                           algos=algo, wght_mtds=wght_mtd, date_start=date_start)
         pf_backtest.backtest()
         plot_results(pf_backtest=pf_backtest)
+        pf_alloc_dct = pf_backtest.allocate()
+        df = pd.DataFrame(pf_alloc_dct[wght_mtd])
+        df = df.reset_index()
+        df = df.rename(columns={"index": "Ticker"})
+        df = df.sort_values('Weight', ascending=False)
+        timestamp = pf_backtest.price_df.index[-1]
+        print(timestamp)
+        print(df)
 
     elif unit_test == UnitTests.RUN_SWEEP:
         run_sweep(strategies=strategies)

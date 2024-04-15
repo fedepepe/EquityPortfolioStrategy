@@ -37,6 +37,8 @@ class Algorithms(Enum, metaclass=EnumDirectValueMeta):
     LOMTM = 'lomtm'
     LORMMTM = 'lormmtm'
 
+    MAX_SHARPE = 'max_sharpe'
+
     # IMV = 'imv'
 
 

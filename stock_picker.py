@@ -7,11 +7,13 @@ Created on Thu Mar 11 12:12:38 2021
 """
 # from multiprocessing import managers as mpm
 
-import pandas as pd
-import numpy as np
 import random
 # import statsmodels.api as sm
 import warnings
+
+import numpy as np
+import pandas as pd
+import scipy.optimize as opt
 
 import portfolio_optimization as mv_opt
 from compute_sev import compute_sev, compute_sev_multiproc
@@ -198,6 +200,59 @@ class StockPicker:
                 print(f'Number of stocks selected: {len(stk_sel)}')
             return pd.DataFrame(np.nan, index=stk_sel, columns=[])
 
+    def optimize_portfolios(self,
+                            long_only: bool = True):
+        n_run = 1e3
+        max_weight = 0.5
+        max_lvrg = 1.5
+        n_done = 0
+        best_sharpe_curr = - np.inf
+        while n_done < n_run:
+            # Randomly pick n_stck stocks out of the whole universe
+            idx_stk_sel = np.random.choice(len(self.ret_df.columns), size=self.n_stk, replace=False)
+
+            ret_df = self.ret_df.iloc[:, idx_stk_sel]
+
+            tickers_sel = ret_df.columns
+
+            series_of_ones = pd.Series(1, index=tickers_sel)
+
+            # Imposing sum of weights being equal to 1
+            linear_constraint = opt.LinearConstraint(series_of_ones, 1, 1)
+
+            # Imposing the restriction on maximum leverage
+            nonlinear_constraint_1 = opt.NonlinearConstraint(leverage, 1, max_lvrg)
+
+            # Imposing the no short-selling restriction
+            if long_only:
+                bounds = opt.Bounds(0 * series_of_ones, max_weight * series_of_ones)
+            else:
+                bounds = opt.Bounds(- max_weight * series_of_ones, max_weight * series_of_ones)
+
+            # Initial starting point is either the equally-weighted portfolio or a random one
+            # w0 = w_eq
+            w0 = np.random.uniform(low=0.0, high=1.0, size=self.n_stk) * series_of_ones
+            w0 = w0 / sum(w0)
+
+            """Optimize portfolio variance over the training set"""
+            # Maximize historical ex-post Sharpe ratio
+            try:
+                opt_result_hist = opt.minimize(neg_sharpe_ratio, w0,
+                                               args=(ret_df),
+                                               method='trust-constr',
+                                               options={'verbose': False, 'maxiter': 2500},
+                                               constraints=(linear_constraint, nonlinear_constraint_1,),
+                                               bounds=bounds)
+            except (np.linalg.LinAlgError, ValueError):
+                continue
+
+            if opt_result_hist.success:
+                if opt_result_hist.fun > best_sharpe_curr:
+                    best_sharpe_curr = opt_result_hist.fun
+                    stock_df = pd.DataFrame(data=opt_result_hist.x, index=tickers_sel, columns=['Metric'])
+                    stock_df['Pos'] = 1
+        return stock_df
+
     def pick_stocks(self, multi_proc: bool = True, cv_opt_bw: bool = False) -> pd.DataFrame:
         if self.algo == Algorithms.MTM:
             stock_df = self.use_momentum(long_only=False, risk_managed=False)
@@ -241,6 +296,8 @@ class StockPicker:
                                     multi_proc=multi_proc,
                                     corr_method=CorrelationMethods.LINEAR,
                                     tracking_mode=False)
+        elif self.algo == Algorithms.MAX_SHARPE:
+            stock_df = self.optimize_portfolios(long_only=True)
 
         # elif self.algo == Algorithms.IMV:
         #     stock_df = self.use_backward_subsel()
@@ -249,6 +306,29 @@ class StockPicker:
             raise Exception('Algorithm not recognized.')
 
         return stock_df
+
+
+def portfolio_returns(return_df, weights):
+    cum_ret_df = return_df.add(1).cumprod()
+    cum_pf_ret = cum_ret_df.sub(1).values.dot(weights) + 1.
+    # pf_ret = np.diff(np.log(cum_pf_ret))
+    pf_ret = np.diff(cum_pf_ret) / cum_pf_ret[:-1]
+    return pf_ret
+
+
+def portfolio_sharpe(return_df, weights):
+    pf_ret = portfolio_returns(return_df, weights)
+    pf_sharpe = pf_ret.mean() / pf_ret.std()
+    return pf_sharpe
+
+
+def leverage(weights):
+    return abs(weights).sum()
+
+
+def neg_sharpe_ratio(weights, return_df):
+    pf_sharpe = portfolio_sharpe(return_df, weights)
+    return - pf_sharpe
 
 
 if __name__ == "__main__":

@@ -60,8 +60,8 @@ class PortfolioBacktest:
                  endow: float = 1e6,
                  lag: int = 1,
                  nsel: float = 0.1,
-                 trsctn_fee_fix: float = 0.,
-                 trsctn_fee_prop: float = 10e-4,
+                 trx_fee_fix: float = 0.,
+                 trx_fee_prop: float = 10e-4,
                  risk_avers_factor: float = None,
                  max_leverage: float = 3.,
                  multi_proc: bool = True,
@@ -114,8 +114,8 @@ class PortfolioBacktest:
 
         self.lag = lag  # time lag (in days) between last observation and of rebalancing
         self.nsel = nsel
-        self.trsctn_fee_fix = trsctn_fee_fix
-        self.trsctn_fee_prop = trsctn_fee_prop
+        self.trx_fee_fix = trx_fee_fix
+        self.trx_fee_prop = trx_fee_prop
         self.risk_avers_factor = risk_avers_factor
         self.max_leverage = max_leverage
         self.multi_proc = multi_proc
@@ -270,6 +270,8 @@ class PortfolioBacktest:
         # compute portfolio allocation
         pf_alloc_dct = {}
         for wm in self.portfolios:
+            if wm == 'mkt':
+                continue
             pf_alloc_dct[wm] = self.portfolios[wm].compute_weights(stock_sel_df=stock_sel_df,
                                                                    wght_mtd=wm,
                                                                    risk_avers=self.risk_avers_factor,
@@ -278,8 +280,8 @@ class PortfolioBacktest:
                                                                    ret_df=ret_sel_df_hist,
                                                                    vol_df=vol_sel_df_hist,
                                                                    bema_ret_df=rf_ret_df_hist,
-                                                                   trsctn_fee_fix=self.trsctn_fee_fix,
-                                                                   trsctn_fee_prop=self.trsctn_fee_prop)
+                                                                   trsctn_fee_fix=self.trx_fee_fix,
+                                                                   trsctn_fee_prop=self.trx_fee_prop)
         return pf_alloc_dct
 
     @calculate_time
@@ -331,7 +333,7 @@ class PortfolioBacktest:
                 # execute trading
                 for wm in self.portfolios:
                     self.portfolios[wm].rebalance(pf_alloc_dct[wm], price_curr_dct,
-                                                  self.trsctn_fee_fix, self.trsctn_fee_prop)
+                                                  self.trx_fee_fix, self.trx_fee_prop)
 
             for wm in self.portfolios:
                 self.portfolios[wm].update_hist(timestamp, self.save_stk_hist)
@@ -599,13 +601,13 @@ class PortfolioBacktest:
         fig_wealth.show()
         return fig_wealth
 
-    def plot_heatmap(self, metric_id: EnumPerfMetrics) -> Dict[int, plt.Figure]:
-        results_dict = self.rearrange_results(metric_id=metric_id)
+    def plot_heatmap(self, metric: EnumPerfMetrics) -> Dict[int, plt.Figure]:
+        results_dict = self.rearrange_results(metric_id=metric)
 
         # get info on chosen performance metric
         default_pf = Portfolio()
-        metric_label = default_pf.perf_metrics[metric_id].label
-        reverse = default_pf.perf_metrics[metric_id].rev_color_scale
+        metric_label = default_pf.perf_metrics[metric].label
+        reverse = default_pf.perf_metrics[metric].rev_color_scale
 
         # iterate over all values of n_stk present in the results dictionary
         n_stk_ar = list(set([k[0] for k in results_dict.keys()]))

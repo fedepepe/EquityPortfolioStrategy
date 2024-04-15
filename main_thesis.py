@@ -94,7 +94,7 @@ pf_backtest = PortfolioBacktest(dataset=dataset, endow=endow, n_stk=n_stk, n_obs
                                 algos=algo, wght_mtds=wght_mtds, price_df=close_df,
                                 return_df=return_df, volat_df=real_vol_df, mktcap_df=mktcap_df,
                                 bema_idx_df=mkt_idx_df, risk_free_ret=rf_ret_df, idx_start=0, lag=1,
-                                trsctn_fee_fix=trsctn_fee_fix, trsctn_fee_prop=trsctn_fee_prop,
+                                trx_fee_fix=trsctn_fee_fix, trx_fee_prop=trsctn_fee_prop,
                                 risk_avers_factor=None,
                                 multi_proc=True, cv_opt_bw=False,
                                 save_stk_hist=False)
