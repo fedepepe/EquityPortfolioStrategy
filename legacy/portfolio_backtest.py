@@ -99,6 +99,8 @@ class PortfolioBacktest:
         self.return_df = return_df
         self.volat_df = volat_df
         self.mktcap_df = mktcap_df
+        if isinstance(bema_idx_df, pd.DataFrame):
+            bema_idx_df = bema_idx_df.iloc[:, 0]
         self.bema_idx_df = bema_idx_df
         self.risk_free_ret = risk_free_ret
         self.endow = endow

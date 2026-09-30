@@ -13,7 +13,7 @@ def get_symbols_string_STOXXE600():
 
     with open(COMPONENT_FILE_NAME) as file:
         lines = [line.rstrip() for line in file]
-    tickers = [line.split()[1] for line in lines]
+    tickers = list(set([line.split()[1] for line in lines]))
     return tickers
 
 

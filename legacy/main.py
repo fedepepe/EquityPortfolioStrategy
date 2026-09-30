@@ -23,7 +23,11 @@ WGHT_METHODS_ALL = [w.value for w in WeightMethods]
 
 
 # %% Load data
-def main_download(dataset_list: List[StockUniverses] = (StockUniverses.SP500, StockUniverses.STOXXE600)):
+def main_download(dataset_list: List[StockUniverses] = (
+        StockUniverses.SP500,
+        StockUniverses.STOXXE600,
+)
+):
     for ds in dataset_list:
         yahoo_download = YahooDataDownloader(ds)
         yahoo_download.download_latest_data()
@@ -70,7 +74,7 @@ def create_backtest_obj(dataset: StockUniverses,
                                     algos=algos, wght_mtds=wght_mtds, price_df=close_df,
                                     return_df=return_df, volat_df=real_vol_df, mktcap_df=mktcap_df,
                                     bema_idx_df=mkt_idx_df, risk_free_ret=None, date_start=date_start,
-                                    endow=1e4, lag=data_lag,
+                                    endow=1e5, lag=data_lag,
                                     trx_fee_fix=trsctn_fee_fix, trx_fee_prop=trsctn_fee_prop,
                                     risk_avers_factor=None,
                                     multi_proc=False, cv_opt_bw=False, save_stk_hist=True,
@@ -140,16 +144,16 @@ def run_unit_test(unit_test: UnitTests):
         # strategy = TopStrategies.SP500.value
         strategy = definitions.Strategy(dataset=StockUniverses.SP500,
                                         algo=Algorithms.LOLIN,
-                                        wght_mtds=WeightMethods.RISKPAR,
-                                        n_stk=2,
-                                        n_obs=60)
+                                        wght_mtds=WeightMethods.RISK_PARITY,
+                                        n_stk=5,
+                                        n_obs=80)
         dataset = strategy.dataset
         algo = strategy.algo
         wght_mtd = strategy.wght_mtds
         n_stk = strategy.n_stk
         n_obs = strategy.n_obs
         n_reb = 10
-        date_start = None  # pd.to_datetime('2021-01-01')
+        date_start = pd.to_datetime('2022-06-30')
         pf_backtest = create_backtest_obj(dataset=dataset, n_stk=n_stk, n_obs=n_obs, n_reb=n_reb,
                                           algos=algo, wght_mtds=wght_mtd, date_start=date_start)
         pf_backtest.backtest()
@@ -179,7 +183,7 @@ def run_unit_test(unit_test: UnitTests):
         for strategy in TopStrategies:
             dataset = strategy.value.dataset
             algo = strategy.value.algo
-            wght_mtd = strategy.value.wght_mtd
+            wght_mtd = strategy.value.wght_mtds
             n_stk = strategy.value.n_stk
             n_obs = strategy.value.n_obs
             pf_backtest = create_backtest_obj(dataset=dataset, wght_mtds=wght_mtd)

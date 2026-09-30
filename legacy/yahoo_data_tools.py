@@ -9,15 +9,19 @@ Created on Sat Jul 31 14:51:00 2021
 import glob
 import os
 import statistics
+import time
 import warnings
 from typing import Union, List
 
 import numpy as np
 import pandas as pd
 import yfinance as yf
+from selenium import webdriver
 
 import symbols_string
 from definitions import StockUniverses
+
+browser = webdriver.Chrome()
 
 YMD_DATE_FORMAT = '%Y-%m-%d'
 
@@ -110,7 +114,10 @@ def get_tickers(dataset: StockUniverses) -> List:
 
         # or, alternatively, get updated tickers from Wikipedia
         sp500_wiki_url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
-        sp500_constituents = pd.read_html(sp500_wiki_url, header=0)[0]
+        browser.get(sp500_wiki_url)
+        time.sleep(1)
+        sp500_wiki_html = browser.page_source
+        sp500_constituents = pd.read_html(sp500_wiki_html, header=0)[0]
         return sp500_constituents.Symbol.tolist()
     else:
         return []
@@ -119,8 +126,17 @@ def get_tickers(dataset: StockUniverses) -> List:
 @print_status_msg('Downloading data from Yahoo Finance')
 def download_stock_data(dataset, date_start, date_end, intrvl_str):
     symbols = get_tickers(dataset)
-    df = yf.download(symbols, start=date_start, end=date_end, interval=intrvl_str,
-                     threads=True, auto_adjust=True, actions=True)
+    df = pd.DataFrame()
+    for symbol in symbols:
+        symbol = symbol.replace('.S', '.SW')
+        ticker = yf.Ticker(ticker=symbol)
+        df_symbol = ticker.history(start=date_start, end=date_end, interval=intrvl_str, auto_adjust=True)
+        if df_symbol.empty:
+            pass
+        index = pd.MultiIndex.from_tuples((col, symbol) for col in df_symbol.columns)
+        df_symbol.columns = index
+        df = pd.concat([df, df_symbol], axis=1)
+        time.sleep(0.1)
     df = df.dropna(how='all')
     return df
 
@@ -230,8 +246,8 @@ def adjust_stk_prices(close_ds, close_daily_df):
                             df_curr[tckr] = price_ser_adj[~price_ser_adj.index.duplicated(keep='first')]
 
                 except:
-                    breakpoint()
-                    raise Exception('Problems with data from Yahoo Finance. Try again later.')
+                    print('Problems with data from Yahoo Finance. Try again later.')
+                    # breakpoint()
 
         close_ds[d] = df_curr
 

@@ -16,9 +16,10 @@ class StockUniverses(Enum, metaclass=EnumDirectValueMeta):
 
 
 class WeightMethods(Enum, metaclass=EnumDirectValueMeta):
+    METRIC = 'metric'
     EQ = 'equal'
     MKTCAP = 'mktcap'
-    RISKPAR = 'riskpar'
+    RISK_PARITY = 'riskpar'
     LOTP = 'lotp'
     ILOTP = 'ilotp'
 
@@ -37,7 +38,7 @@ class Algorithms(Enum, metaclass=EnumDirectValueMeta):
     LOMTM = 'lomtm'
     LORMMTM = 'lormmtm'
 
-    MAX_SHARPE = 'max_sharpe'
+    MAX_SHARPE = 'max_sr'
 
     # IMV = 'imv'
 
@@ -53,12 +54,12 @@ class Strategy(NamedTuple):
 class TopStrategies(Enum):
     SP500 = Strategy(dataset=StockUniverses.SP500,
                      algo=Algorithms.SEV,
-                     wght_mtds=WeightMethods.RISKPAR,
+                     wght_mtds=WeightMethods.RISK_PARITY,
                      n_stk=10,
                      n_obs=90)
     STOXXE600 = Strategy(dataset=StockUniverses.STOXXE600,
                          algo=Algorithms.RMLIN,
-                         wght_mtds=WeightMethods.RISKPAR,
+                         wght_mtds=WeightMethods.RISK_PARITY,
                          n_stk=10,
                          n_obs=60)
 
