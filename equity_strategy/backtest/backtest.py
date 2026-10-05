@@ -93,7 +93,7 @@ class PortfolioBacktest:
                  fee_proportional: float = 1e-3,
                  risk_aversion: float | None = None,
                  max_leverage: float = 3.0,
-                 parallel: bool = True,
+                 parallel: bool = False,
                  cv_bandwidth: bool = False,
                  results_dir: Path | None = None,
                  results_tag: str | None = None,

@@ -69,3 +69,15 @@ def test_realized_volatility_penalizes_missing_observations():
     volatility = yahoo_tools.realized_volatility(prices, typical_n_obs=11)
 
     assert volatility["gappy"] > volatility["full"] > 0
+
+
+def test_adjust_stk_prices_scales_float16_days_to_daily_close():
+    index = pd.date_range("2021-08-11 13:30", periods=4, freq="min", tz="UTC")
+    intraday = pd.DataFrame({"A": [10.0, 11.0, np.nan, np.nan], "B": [20.0, 20.0, 20.0, 20.0]},
+                            index=index).astype(np.float16)
+    close_daily = pd.DataFrame({"A": [5.5], "B": [40.0]}, index=pd.DatetimeIndex(["2021-08-11"], tz="UTC"))
+
+    adjusted = yahoo_tools.adjust_stk_prices({"2021-08-11": intraday}, close_daily)["2021-08-11"]
+
+    assert adjusted["A"].iloc[1] == pytest.approx(5.5)
+    assert adjusted["B"].iloc[-1] == pytest.approx(40.0)

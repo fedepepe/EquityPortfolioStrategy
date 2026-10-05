@@ -125,8 +125,12 @@ def _column_dependence_score(column: pd.Series, target: pd.Series,
 
 def dependence_scores(features: pd.DataFrame, target: pd.Series,
                       method: CorrelationMethods = CorrelationMethods.SEV,
-                      cv_bandwidth: bool = False, parallel: bool = True) -> pd.Series:
-    """Dependence score of ``target`` on each column of ``features``."""
+                      cv_bandwidth: bool = False, parallel: bool = False) -> pd.Series:
+    """Dependence score of ``target`` on each column of ``features``.
+
+    ``parallel`` uses pandarallel. It pays off only with fork-based multiprocessing (Linux/WSL):
+    on Windows, starting the workers costs seconds per call, far more than the scores themselves.
+    """
     args = (target, method, cv_bandwidth)
     if not parallel:
         return features.apply(_column_dependence_score, args=args)

@@ -103,7 +103,7 @@ class StockPicker:
         self.market_cap = market_cap
         self.benchmark_fraction = benchmark_fraction
 
-    def pick_stocks(self, parallel: bool = True, cv_bandwidth: bool = False) -> pd.DataFrame:
+    def pick_stocks(self, parallel: bool = False, cv_bandwidth: bool = False) -> pd.DataFrame:
         try:
             rule = _SELECTION_RULES[self.algorithm]
         except KeyError:

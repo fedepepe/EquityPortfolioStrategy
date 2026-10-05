@@ -135,7 +135,8 @@ def adjust_stk_prices(close_by_day: IntradayPrices, close_daily: pd.DataFrame) -
             logger.warning("No daily close for %s: intraday prices left unadjusted.", day)
             continue
 
-        intraday = close_by_day[day]
+        # older cached days are stored as float16, which ffill does not support
+        intraday = close_by_day[day].astype(float)
         intraday = intraday[~intraday.index.duplicated(keep="first")]
         last_valid_price = intraday.ffill().iloc[-1]
         reference_close = reference_rows.iloc[0].reindex(intraday.columns).astype(float)

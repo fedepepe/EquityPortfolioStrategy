@@ -102,7 +102,8 @@ class YahooDataDownloader:
         self.download_stock_info(tickers)
         self.update_daily_prices()
 
-        # force a fresh benchmark download on the next load
+        # force fresh returns/volatility and benchmark data on the next load
+        self._dated_file(self.returns_volatility_prefix).unlink(missing_ok=True)
         self._dated_file(self.market_data_prefix).unlink(missing_ok=True)
 
     def download_intraday_prices(self,
