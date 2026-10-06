@@ -5,18 +5,18 @@ Created on Thu Mar 11 12:12:38 2021
 
 @author: federico
 """
-
-import numpy as np
 import datetime as dt
-import pandas as pd
-from pandas_datareader import data as dataread
-import pickle
-import yfinance as yf
 import glob
 import os
+import pickle
+import time
 
-from definitions import StockUniverses
+import numpy as np
+import pandas as pd
+import yfinance as yf
+
 import yahoo_data_tools as ytls
+from definitions import StockUniverses
 
 
 class YahooDataDownloader:
@@ -85,9 +85,10 @@ class YahooDataDownloader:
                 intvl = '1m'
             else:
                 intvl = '5m'
-            data_chunks.append(ytls.download_stock_data(self.dataset, start_date, end_date, intvl))
+            data_chunk = ytls.download_stock_data(self.dataset, start_date, end_date, intvl)
+            data_chunks.append(data_chunk)
             end_date = end_date - dt.timedelta(days=6)
-        
+
         data_chunks.reverse()
         prices_df = pd.concat(data_chunks)
         
@@ -119,11 +120,18 @@ class YahooDataDownloader:
         print(' --- Downloading full stock data...', end=' ')
         data = pd.DataFrame()
         for tckr in tickers:
-            try:
-                data = pd.concat([data, dataread.get_quote_yahoo([tckr])])
-            except:
-                print(f'\nNo quotes available for {tckr}.')
-        
+            for attempt in range(5):
+                try:
+                    ticker = yf.Ticker(tckr)
+                    ser = pd.Series(ticker.info).rename(tckr)
+                    data = pd.concat([data, ser], axis=1)
+                    time.sleep(0.5)
+                    break
+                except Exception as e:
+                    print(e)
+                    continue
+        data = data.transpose()
+
         ts = dt.date.today()
         with open(f'{self.stk_data_filename_tag}{ts.strftime(self.ymd_fmt_str)}.pkl', 'wb') as handle:
             pickle.dump([data, ts], handle, protocol=pickle.HIGHEST_PROTOCOL)

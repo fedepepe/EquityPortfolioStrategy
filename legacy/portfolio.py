@@ -163,8 +163,9 @@ class Portfolio:
             stock_df['Weight'] = [1 / tkrs_sel.size for _ in tkrs_sel]
             stock_df['Weight'] = stock_df['Pos'] * stock_df['Weight']
         elif wght_mtd.lower() == 'metric':  # Metric (momentum or SEV)-weighted portfolio
-            stock_df['Weight'] = stock_df['metric'] / stock_df['metric'].abs().sum()
-            stock_df['Weight'] = stock_df['Pos'] * stock_df['Weight']
+            # stock_df['Weight'] = stock_df['metric'] / stock_df['metric'].abs().sum()
+            # stock_df['Weight'] = stock_df['Pos'] * stock_df['Weight']
+            stock_df['Weight'] = stock_df['Metric']
         elif wght_mtd.lower() == 'erc':  # Equally risk contribution portfolio
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", message="delta_grad == 0.0")
