@@ -79,7 +79,7 @@ backtest.plot_cum_wealth()
 
 ## Data and outputs
 
-Cached data lives in `SP500/` and `STOXXE600/` (see `equity_strategy/data/downloader.py` for the file layout). Transaction fees and the data lag per universe are read from `parameters.pkl`. Backtest results are written to `<dataset>/results/`, and allocations to `predictions/`.
+Cached data lives in `SP500/` and `STOXXE600/` (see `equity_strategy/data/downloader.py` for the file layout). Transaction fees and the data lag per universe are read from `parameters.pkl`. Backtest results are written to `<dataset>/results/`, and allocations to `predictions/`. A single (non-sweep) backtest also saves, per weighting method, the target weights at every rebalancing date to `<dataset>/results/_<date>_<n_stocks>_<algorithm>_<method>_<window>_<rebalance>_allocation.xlsx` (first column the rebalancing date, then one column per ticker; 0 = not held).
 
 ## Project structure
 

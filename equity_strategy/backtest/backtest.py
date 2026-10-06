@@ -173,6 +173,8 @@ class PortfolioBacktest:
 
         self.portfolios: dict[str, Portfolio] = {}
         self.dates: pd.DatetimeIndex | None = None  # dates of the last run, starting from the initial one
+        # target weights set at each rebalancing date of the last run, per weighting method
+        self._weight_history: dict[str, dict[pd.Timestamp, pd.Series]] = {}
         if self.weight_methods:
             self._init_portfolios(prices.index[0])
 
@@ -199,6 +201,7 @@ class PortfolioBacktest:
 
     def _init_portfolios(self, date: pd.Timestamp) -> None:
         self.portfolios = {method: Portfolio(self.endowment) for method in self.weight_methods}
+        self._weight_history = {method: {} for method in self.weight_methods}
         for portfolio in self.portfolios.values():
             portfolio.record(date, self.save_positions)
 
@@ -284,6 +287,7 @@ class PortfolioBacktest:
                 targets = self.allocate(date, trade_prices)
                 for method, portfolio in self.portfolios.items():
                     portfolio.rebalance(targets[method], trade_prices, self.fee_fixed, self.fee_proportional)
+                    self._weight_history[method][date] = targets[method]["Weight"]
 
             for portfolio in self.portfolios.values():
                 portfolio.record(date, self.save_positions)
@@ -320,6 +324,9 @@ class PortfolioBacktest:
 
                 self._store_results()
                 self.print_results(to_file=self.parametric_sweep)
+                if not self.parametric_sweep:
+                    for path in self.save_allocation_history():
+                        logger.info("Allocation history saved to %s.", path)
 
             if self.parametric_sweep:
                 results_io.save_results(self.results, self.results_pickle_path)
@@ -371,6 +378,29 @@ class PortfolioBacktest:
             market_returns = self.benchmark_index.ffill().pct_change(fill_method=None)
         for portfolio in self.portfolios.values():
             portfolio.analyze(market_returns=market_returns, risk_free_return=self.risk_free_return)
+
+    def allocation_history(self, method: str) -> pd.DataFrame:
+        """Target weights of ``method`` at each rebalancing date of the last run (date x ticker).
+
+        Tickers not selected on a date have weight 0; a date where nothing was selected is a row of zeros.
+        """
+        weights_by_date = self._weight_history[method]
+        history = pd.DataFrame(list(weights_by_date.values()), index=list(weights_by_date.keys()))
+        history = history.reindex(columns=sorted(history.columns)).fillna(0.0)
+        history.index = pd.Index(pd.DatetimeIndex(history.index).date, name="Date")
+        return history
+
+    def save_allocation_history(self) -> list[Path]:
+        """Write the allocation history of each weighting method of the last run to an Excel file
+        in the results directory; the first column is the rebalancing date, the others are tickers.
+        """
+        paths = []
+        for method in self._weight_history:
+            path = self._results_path(f"_{self.n_stocks}_{self.algorithm}_{method}_{self.window_length}_"
+                                      f"{self.rebalance_interval}_allocation.xlsx")
+            self.allocation_history(method).to_excel(path)
+            paths.append(path)
+        return paths
 
     def compute_ff_factors(self, n_factors: int) -> None:
         for portfolio in self.portfolios.values():

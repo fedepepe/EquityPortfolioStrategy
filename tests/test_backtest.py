@@ -39,6 +39,23 @@ def test_single_backtest_tracks_every_portfolio(market_frames, tmp_path):
     assert backtest.portfolios[WeightMethods.EQ].value_history.iloc[1] < 1e5
 
 
+def test_single_backtest_saves_allocation_history_to_excel(market_frames, tmp_path):
+    backtest = _backtest(market_frames, tmp_path, weight_methods=[WeightMethods.EQ])
+
+    backtest.backtest()
+
+    path = tmp_path / f"_{backtest.results_date}_5_{Algorithms.LOMTM}_{WeightMethods.EQ}_30_20_allocation.xlsx"
+    saved = pd.read_excel(path)
+    rebalance_dates = backtest.dates[1::20]
+    assert saved.columns[0] == "Date"
+    assert list(saved["Date"].dt.date) == list(rebalance_dates.date)
+    assert set(saved.columns[1:]) <= set(market_frames["prices"].columns)
+    weights = saved.drop(columns="Date")
+    # equal weights: every row holds n_stocks tickers at 1/5 each, the rest at 0
+    assert ((weights == 0.2).sum(axis=1) == 5).all()
+    assert weights.sum(axis=1).round(10).eq(1.0).all()
+
+
 def test_allocate_returns_one_target_per_weight_method(market_frames, tmp_path):
     backtest = _backtest(market_frames, tmp_path)
 
