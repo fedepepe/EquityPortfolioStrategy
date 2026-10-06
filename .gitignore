@@ -7,3 +7,14 @@ venv/
 env/
 .idea/
 .claude/
+
+# Market data, results and outputs (local only)
+/SP500/
+/STOXXE600/
+/NASDAQ/
+/predictions/
+/Thesis/
+*.pkl
+*.csv
+*.zip
+*.xlsx
